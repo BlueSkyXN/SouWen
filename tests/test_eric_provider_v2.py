@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
-from souwen.config import SouWenConfig
+from souwen.config import DEFAULT_SEARCH_PROVIDERS, SouWenConfig
 from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError
 from souwen.delivery.api import create_target_delivery_app
 from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
@@ -754,7 +754,13 @@ async def test_disabled_eric_keeps_crossref_default_and_never_constructs_eric(mo
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr("souwen.server.v2_runtime.CrossrefClient", RuntimeCrossrefClient)
     monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", forbidden_eric_transport)
-    runtime = build_target_runtime(SouWenConfig(sources={"eric": {"enabled": False}}))
+    # 默认批次会并发执行前三个候选；把 paper 候选收窄到禁用的 eric 和打桩的 crossref，
+    # 避免未打桩的 huggingface/openalex 发真实请求。
+    defaults = {domain: list(ids) for domain, ids in DEFAULT_SEARCH_PROVIDERS.items()}
+    defaults["paper"] = ["eric", "crossref"]
+    runtime = build_target_runtime(
+        SouWenConfig(sources={"eric": {"enabled": False}}, search_defaults=defaults)
+    )
 
     by_id = {item.provider: item for item in runtime.services.provider_items}
     assert by_id["eric"].availability == "unavailable"
@@ -762,7 +768,9 @@ async def test_disabled_eric_keeps_crossref_default_and_never_constructs_eric(mo
     assert "eric-search" not in runtime.manager.eligible_adapter_ids
 
     default_page = await runtime.services.search.search(_request(), _context(), _execution())
-    assert default_page.meta.requested == ("crossref",)
+    # 候选列表含禁用的 eric；它不执行，crossref 产出结果。
+    assert default_page.meta.requested == ("eric", "crossref")
+    assert default_page.meta.succeeded == ("crossref",)
     assert default_page.items[0].id == "doi:10.1000/default"
 
     with pytest.raises(ProviderError) as exc_info:

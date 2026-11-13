@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 from souwen.platform.provider_spec import CnScraperBinding, CnScraperSearchProvider
 
-_BINDING = CnScraperBinding("xiaohongshu", "cn_tech", result_host="xiaohongshu.com")
+_BINDING = CnScraperBinding("xiaohongshu", "community", result_host="xiaohongshu.com")
 
 
 class XiaohongshuClientProtocol(Protocol):

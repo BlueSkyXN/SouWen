@@ -37,7 +37,7 @@ class _Client:
 async def test_xiaohongshu_search_projects_reviewed_site_result():
     client = _Client()
     page = await XiaohongshuSearchProvider(client).search(
-        SearchRequest(query="travel", domains=("cn_tech",), page=SearchPageRequest(limit=2)),
+        SearchRequest(query="travel", domains=("community",), page=SearchPageRequest(limit=2)),
         RequestContext(request_id="xiaohongshu"),
         ExecutionContext.with_timeout(1),
     )

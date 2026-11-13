@@ -42,7 +42,7 @@ class _Client:
 async def test_csdn_search_projects_and_rejects_cursor_and_filters():
     client = _Client()
     provider = CSDNSearchProvider(client)
-    request = SearchRequest(query="python", domains=("cn_tech",), page=SearchPageRequest(limit=3))
+    request = SearchRequest(query="python", domains=("community",), page=SearchPageRequest(limit=3))
     page = await provider.search(
         request, RequestContext(request_id="csdn"), ExecutionContext.with_timeout(1)
     )
@@ -50,9 +50,9 @@ async def test_csdn_search_projects_and_rejects_cursor_and_filters():
     assert page.page.limit == 3
     for invalid in (
         SearchRequest(
-            query="python", domains=("cn_tech",), page=SearchPageRequest(limit=3, cursor="x")
+            query="python", domains=("community",), page=SearchPageRequest(limit=3, cursor="x")
         ),
-        SearchRequest(query="python", domains=("cn_tech",), filters={"language": "zh"}),
+        SearchRequest(query="python", domains=("community",), filters={"language": "zh"}),
     ):
         with pytest.raises(ProviderError) as caught:
             await provider.search(

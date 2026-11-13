@@ -37,7 +37,7 @@ class _Client:
 async def test_v2ex_search_projects_reviewed_site_result():
     client = _Client()
     page = await V2EXSearchProvider(client).search(
-        SearchRequest(query="python", domains=("cn_tech",), page=SearchPageRequest(limit=2)),
+        SearchRequest(query="python", domains=("community",), page=SearchPageRequest(limit=2)),
         RequestContext(request_id="v2ex"),
         ExecutionContext.with_timeout(1),
     )

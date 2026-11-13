@@ -315,9 +315,9 @@ DEFINITIONS = (
     *(
         _web_definition(provider_id, provider_type, domain)
         for provider_id, provider_type, domain in (
-            ("github", GitHubSearchProvider, "developer"),
-            ("stackoverflow", StackOverflowSearchProvider, "developer"),
-            ("wikipedia", WikipediaSearchProvider, "knowledge"),
+            ("github", GitHubSearchProvider, "code"),
+            ("stackoverflow", StackOverflowSearchProvider, "code"),
+            ("wikipedia", WikipediaSearchProvider, "wiki"),
             ("youtube", YouTubeSearchProvider, "videos"),
         )
     ),
@@ -341,7 +341,7 @@ DEFINITIONS = (
             provider_id,
             provider_type,
             _response(provider_id, _research_output(provider_id)),
-            domain="research_output",
+            domain="paper",
         )
         for provider_id, provider_type in (
             ("datacite", DataCiteSearchProvider),

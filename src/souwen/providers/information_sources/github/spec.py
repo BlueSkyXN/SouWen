@@ -6,7 +6,7 @@ from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 GITHUB_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="github",
     adapter_id="github-search",
-    domain="developer",
+    domain="code",
     adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
     transport=ClientTransportDeclaration(
         host="api.github.com",

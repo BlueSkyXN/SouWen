@@ -103,6 +103,6 @@ def _optional_text(value: Any) -> str | None:
     return value.strip() or None
 
 
-_SPEC = ClientSearchSpec(_PROVIDER_ID, "knowledge", _invoke, _project)
+_SPEC = ClientSearchSpec(_PROVIDER_ID, "wiki", _invoke, _project)
 
 __all__ = ["WikipediaClientProtocol", "WikipediaSearchProvider"]

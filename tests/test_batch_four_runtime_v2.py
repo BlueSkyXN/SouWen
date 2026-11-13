@@ -11,7 +11,7 @@ from souwen.common_runtime.channel_overrides import (
     reviewed_source_timeout_seconds,
     source_channel_overrides_enabled,
 )
-from souwen.config import SouWenConfig
+from souwen.config import DEFAULT_SEARCH_PROVIDERS, SouWenConfig
 from souwen.providers.runtime_clients.models import BookResult, ResearchOutputResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
@@ -121,8 +121,16 @@ def test_batch_four_default_search_uses_only_registry_default_providers(
         "OpenLibraryClient",
         _fake_client("open_library", constructor_calls, search_calls, closed),
     )
+    defaults = {domain: list(ids) for domain, ids in DEFAULT_SEARCH_PROVIDERS.items()}
+    # 默认选源现在返回整个候选列表；把两个被 fake 的源设为各自领域的唯一默认，
+    # 保持"默认路径只经注册的默认源"这一断言的确定性（其余 book/paper 候选未打桩）。
+    defaults["book"] = ["open_library"]
+    defaults["paper"] = ["datacite"]
     runtime = runtime_module.build_target_runtime(
-        SouWenConfig(local_catalog_path=str(tmp_path / "catalog.sqlite3"))
+        SouWenConfig(
+            local_catalog_path=str(tmp_path / "catalog.sqlite3"),
+            search_defaults=defaults,
+        )
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
 
@@ -131,9 +139,10 @@ def test_batch_four_default_search_uses_only_registry_default_providers(
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     async def exercise() -> None:
+        # open_library 与 datacite 均走默认选源路径（search_defaults 已收窄到单源）。
         for domain, provider_id in (
             ("book", "open_library"),
-            ("research_output", "datacite"),
+            ("paper", "datacite"),
         ):
             page = await runtime.services.search.search(
                 SearchRequest(query="runtime", domains=(domain,)),

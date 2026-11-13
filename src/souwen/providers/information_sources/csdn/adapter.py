@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 from souwen.platform.provider_spec import CnScraperBinding, CnScraperSearchProvider
 
-_BINDING = CnScraperBinding("csdn", "cn_tech")
+_BINDING = CnScraperBinding("csdn", "community")
 
 
 class CSDNClientProtocol(Protocol):

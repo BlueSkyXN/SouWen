@@ -53,7 +53,7 @@ async def test_stackoverflow_maps_legacy_result_and_rejects_invalid_upstream() -
     )
     client = _Client(response)
     page = await StackOverflowSearchProvider(client).search(
-        SearchRequest(query="query", domains=("developer",)),
+        SearchRequest(query="query", domains=("code",)),
         RequestContext(request_id="stackoverflow"),
         ExecutionContext.with_timeout(5),
     )
@@ -61,7 +61,7 @@ async def test_stackoverflow_maps_legacy_result_and_rejects_invalid_upstream() -
     assert str(page.items[0].url) == "https://example.test/path?x=1"
     with pytest.raises(ProviderError) as caught:
         await StackOverflowSearchProvider(_Client(object())).search(
-            SearchRequest(query="bad", domains=("developer",)),
+            SearchRequest(query="bad", domains=("code",)),
             RequestContext(request_id="stackoverflow-bad"),
             ExecutionContext.with_timeout(5),
         )

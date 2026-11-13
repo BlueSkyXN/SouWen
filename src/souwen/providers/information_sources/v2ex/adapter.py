@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 from souwen.platform.provider_spec import CnScraperBinding, CnScraperSearchProvider
 
-_BINDING = CnScraperBinding("v2ex", "cn_tech", result_host="v2ex.com")
+_BINDING = CnScraperBinding("v2ex", "community", result_host="v2ex.com")
 
 
 class V2EXClientProtocol(Protocol):

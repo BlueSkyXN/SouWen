@@ -6,7 +6,7 @@ from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 STACKOVERFLOW_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="stackoverflow",
     adapter_id="stackoverflow-search",
-    domain="developer",
+    domain="code",
     adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
     transport=ClientTransportDeclaration(
         host="api.stackexchange.com",

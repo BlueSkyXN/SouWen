@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 from souwen.platform.provider_spec import CnScraperBinding, CnScraperSearchProvider
 
-_BINDING = CnScraperBinding("coolapk", "cn_tech", result_host="coolapk.com")
+_BINDING = CnScraperBinding("coolapk", "community", result_host="coolapk.com")
 
 
 class CoolapkClientProtocol(Protocol):

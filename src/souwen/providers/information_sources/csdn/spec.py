@@ -4,7 +4,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 CSDN_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="csdn",
     adapter_id="csdn-search",
-    domain="cn_tech",
+    domain="community",
     adapter_reason="existing paged JSON response normalization requires a bridge",
     transport=ClientTransportDeclaration(
         host="so.csdn.net",

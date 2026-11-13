@@ -52,7 +52,7 @@ async def test_wikipedia_maps_legacy_result_and_rejects_invalid_upstream() -> No
     )
     client = _Client(response)
     page = await WikipediaSearchProvider(client).search(
-        SearchRequest(query="query", domains=("knowledge",)),
+        SearchRequest(query="query", domains=("wiki",)),
         RequestContext(request_id="wikipedia"),
         ExecutionContext.with_timeout(5),
     )
@@ -60,7 +60,7 @@ async def test_wikipedia_maps_legacy_result_and_rejects_invalid_upstream() -> No
     assert str(page.items[0].url) == "https://example.test/path?x=1"
     with pytest.raises(ProviderError) as caught:
         await WikipediaSearchProvider(_Client(object())).search(
-            SearchRequest(query="bad", domains=("knowledge",)),
+            SearchRequest(query="bad", domains=("wiki",)),
             RequestContext(request_id="wikipedia-bad"),
             ExecutionContext.with_timeout(5),
         )

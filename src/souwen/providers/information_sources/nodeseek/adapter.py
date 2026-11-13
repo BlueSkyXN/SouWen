@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 from souwen.platform.provider_spec import CnScraperBinding, CnScraperSearchProvider
 
-_BINDING = CnScraperBinding("nodeseek", "cn_tech", result_host="nodeseek.com")
+_BINDING = CnScraperBinding("nodeseek", "community", result_host="nodeseek.com")
 
 
 class NodeSeekClientProtocol(Protocol):

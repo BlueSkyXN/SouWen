@@ -110,18 +110,16 @@ class ProviderProbe(CanonicalModel):
 
 
 SearchDomain: TypeAlias = Literal[
-    "paper",
-    "book",
-    "research_output",
-    "patent",
     "web",
     "news",
+    "paper",
+    "patent",
+    "book",
+    "code",
+    "community",
+    "wiki",
     "images",
     "videos",
-    "social",
-    "developer",
-    "cn_tech",
-    "knowledge",
 ]
 
 

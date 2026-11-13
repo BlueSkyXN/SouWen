@@ -204,19 +204,16 @@ class RestJsonProviderSpec(_SpecModel):
     adapter_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
     capability: Literal["search"] = "search"
     domain: Literal[
-        "paper",
-        "book",
-        "research_output",
-        "patent",
         "web",
         "news",
+        "paper",
+        "patent",
+        "book",
+        "code",
+        "community",
+        "wiki",
         "images",
         "videos",
-        "social",
-        "office",
-        "developer",
-        "cn_tech",
-        "knowledge",
     ] = "paper"
     adapter_kind: Literal["generic_rest_json", "client_adapter"] = "generic_rest_json"
     review_status: Literal["reviewed", "reviewed_adapter"] = "reviewed"
@@ -366,19 +363,16 @@ class ClientSearchProviderSpec(_ClientProviderSpec):
 
     capability: Literal["search"] = "search"
     domain: Literal[
-        "paper",
-        "book",
-        "research_output",
-        "patent",
         "web",
         "news",
+        "paper",
+        "patent",
+        "book",
+        "code",
+        "community",
+        "wiki",
         "images",
         "videos",
-        "social",
-        "office",
-        "developer",
-        "cn_tech",
-        "knowledge",
     ] = "paper"
 
 

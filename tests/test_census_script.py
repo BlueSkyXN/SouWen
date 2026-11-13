@@ -148,7 +148,7 @@ class TestPlanSelection:
 
     def test_queries_file_shape(self, queries):
         assert queries["schema_version"] == 1
-        assert len(queries["census_domains"]) == 12
+        assert len(queries["census_domains"]) == 10
         for domain, domain_queries in queries["domains"].items():
             assert len(domain_queries) == 10, domain
             assert len(set(domain_queries)) == 10, domain
@@ -180,7 +180,7 @@ class TestPlanSelection:
 
     def test_domains_mode_plan(self, queries):
         plan = census.select_queries(queries, "domains", None)
-        assert len(plan) == 120
+        assert len(plan) == 100
         assert all(entry["provider"] is None for entry in plan)
 
     def test_fetch_mode_plan(self, queries):

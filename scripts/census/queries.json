@@ -5,18 +5,16 @@
   "min_valid_results": 3,
   "min_fetch_chars": 500,
   "census_domains": [
-    "book",
-    "cn_tech",
-    "developer",
-    "images",
-    "knowledge",
+    "web",
     "news",
     "paper",
     "patent",
-    "research_output",
-    "social",
-    "videos",
-    "web"
+    "book",
+    "code",
+    "community",
+    "wiki",
+    "images",
+    "videos"
   ],
   "domains": {
     "web": [
@@ -31,6 +29,18 @@
       "新能源车 保养建议",
       "remote work productivity tools"
     ],
+    "news": [
+      "artificial intelligence",
+      "climate summit",
+      "stock market today",
+      "space launch",
+      "election results",
+      "人工智能 新闻",
+      "中美 贸易",
+      "新能源汽车 新闻",
+      "科技新闻 今日",
+      "航天 发射"
+    ],
     "paper": [
       "retrieval augmented generation",
       "transformer attention mechanism",
@@ -42,6 +52,18 @@
       "图神经网络 药物发现",
       "强化学习 机器人控制",
       "开源大模型 评测"
+    ],
+    "patent": [
+      "transformer neural network",
+      "lithium battery cathode",
+      "crispr gene editing",
+      "autonomous driving lidar",
+      "solid state battery",
+      "锂电池 正极材料",
+      "自动驾驶 激光雷达",
+      "无人机 图像识别",
+      "钙钛矿 太阳能电池",
+      "半导体 刻蚀"
     ],
     "book": [
       "introduction to algorithms",
@@ -55,31 +77,7 @@
       "鲁迅全集",
       "世界通史"
     ],
-    "cn_tech": [
-      "nas 自建方案",
-      "家庭软路由 推荐",
-      "程序员 副业",
-      "AI 编程 效率",
-      "独立开发 出海",
-      "homelab 2025",
-      "vps 选购",
-      "linux 桌面 推荐",
-      "机械键盘 选购",
-      "开源项目 推荐"
-    ],
-    "social": [
-      "openai latest announcement",
-      "best programming language 2025",
-      "ai safety discussion",
-      "startup funding news",
-      "electric vehicle market",
-      "ChatGPT 使用技巧",
-      "远程办公 体验",
-      "AI 与 工作 讨论",
-      "计算机 考研",
-      "新能源车 评测"
-    ],
-    "developer": [
+    "code": [
       "fastapi dependency injection",
       "react server components example",
       "docker compose networking",
@@ -91,41 +89,29 @@
       "WebSocket 实战",
       "Rust 入门"
     ],
-    "research_output": [
-      "covid 19 dataset",
-      "climate change data",
-      "genome dataset",
-      "image classification dataset",
-      "language model corpus",
-      "中文 语料库",
-      "遥感 数据集",
-      "知识图谱 开放数据",
-      "医疗影像 数据集",
-      "交通 开放数据"
+    "community": [
+      "nas 自建方案",
+      "家庭软路由 推荐",
+      "程序员 副业",
+      "AI 编程 效率",
+      "独立开发 出海",
+      "homelab 2025",
+      "vps 选购",
+      "linux 桌面 推荐",
+      "机械键盘 选购",
+      "开源项目 推荐"
     ],
-    "videos": [
-      "python tutorial for beginners",
-      "machine learning course",
-      "system design interview",
-      "rust programming",
-      "cooking pasta recipe",
-      "机器学习 教程",
-      "Python 入门",
-      "考研数学",
-      "做饭 教程",
-      "健身 入门"
-    ],
-    "news": [
-      "artificial intelligence",
-      "climate summit",
-      "stock market today",
-      "space launch",
-      "election results",
-      "人工智能 新闻",
-      "中美 贸易",
-      "新能源汽车 新闻",
-      "科技新闻 今日",
-      "航天 发射"
+    "wiki": [
+      "retrieval augmented generation",
+      "zhuge liang",
+      "quantum computing",
+      "roman empire",
+      "photosynthesis",
+      "丝绸之路",
+      "宋朝 历史",
+      "量子力学 入门",
+      "区块链 原理",
+      "恐龙 灭绝"
     ],
     "images": [
       "solar eclipse",
@@ -139,29 +125,17 @@
       "赛博朋克 城市",
       "水彩 插画"
     ],
-    "knowledge": [
-      "retrieval augmented generation",
-      "zhuge liang",
-      "quantum computing",
-      "roman empire",
-      "photosynthesis",
-      "丝绸之路",
-      "宋朝 历史",
-      "量子力学 入门",
-      "区块链 原理",
-      "恐龙 灭绝"
-    ],
-    "patent": [
-      "transformer neural network",
-      "lithium battery cathode",
-      "crispr gene editing",
-      "autonomous driving lidar",
-      "solid state battery",
-      "锂电池 正极材料",
-      "自动驾驶 激光雷达",
-      "无人机 图像识别",
-      "钙钛矿 太阳能电池",
-      "半导体 刻蚀"
+    "videos": [
+      "python tutorial for beginners",
+      "machine learning course",
+      "system design interview",
+      "rust programming",
+      "cooking pasta recipe",
+      "机器学习 教程",
+      "Python 入门",
+      "考研数学",
+      "做饭 教程",
+      "健身 入门"
     ]
   },
   "sources": {
@@ -175,10 +149,6 @@
     "baidu": {
       "kind": "search",
       "domain": "web"
-    },
-    "bilibili": {
-      "kind": "search",
-      "domain": "videos"
     },
     "bing": {
       "kind": "search",
@@ -201,7 +171,7 @@
     },
     "coolapk": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "crossref": {
       "kind": "search",
@@ -209,18 +179,11 @@
     },
     "csdn": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "datacite": {
       "kind": "search",
-      "domain": "research_output"
-    },
-    "dblp": {
-      "kind": "search",
       "domain": "paper"
-    },
-    "deepwiki": {
-      "kind": "fetch"
     },
     "doab": {
       "kind": "search",
@@ -256,11 +219,11 @@
     },
     "figshare": {
       "kind": "search",
-      "domain": "research_output"
+      "domain": "paper"
     },
     "github": {
       "kind": "search",
-      "domain": "developer"
+      "domain": "code"
     },
     "google": {
       "kind": "search",
@@ -270,17 +233,13 @@
       "kind": "search",
       "domain": "patent"
     },
-    "gutenberg": {
-      "kind": "search",
-      "domain": "book"
-    },
     "hal": {
       "kind": "search",
       "domain": "paper"
     },
     "hostloc": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "huggingface": {
       "kind": "search",
@@ -299,34 +258,19 @@
     },
     "juejin": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "library_of_congress": {
       "kind": "search",
       "domain": "book"
     },
-    "librivox": {
-      "kind": "search",
-      "domain": "book"
-    },
-    "linuxdo": {
-      "kind": "search",
-      "domain": "cn_tech"
-    },
     "mojeek": {
       "kind": "search",
       "domain": "web"
     },
-    "newspaper": {
-      "kind": "fetch"
-    },
     "nodeseek": {
       "kind": "search",
-      "domain": "cn_tech"
-    },
-    "oapen": {
-      "kind": "search",
-      "domain": "book"
+      "domain": "community"
     },
     "open_library": {
       "kind": "search",
@@ -352,13 +296,6 @@
       "kind": "search",
       "domain": "paper"
     },
-    "readability": {
-      "kind": "fetch"
-    },
-    "reddit": {
-      "kind": "search",
-      "domain": "social"
-    },
     "searxng": {
       "kind": "search",
       "domain": "web"
@@ -369,38 +306,22 @@
     },
     "stackoverflow": {
       "kind": "search",
-      "domain": "developer"
+      "domain": "code"
     },
     "startpage": {
       "kind": "search",
       "domain": "web"
     },
-    "taiwan_new_books": {
-      "kind": "search",
-      "domain": "book"
-    },
     "v2ex": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "wayback": {
       "kind": "fetch"
     },
-    "websurfx": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "weibo": {
-      "kind": "search",
-      "domain": "social"
-    },
-    "whoogle": {
-      "kind": "search",
-      "domain": "web"
-    },
     "wikipedia": {
       "kind": "search",
-      "domain": "knowledge"
+      "domain": "wiki"
     },
     "wikisource": {
       "kind": "search",
@@ -408,7 +329,7 @@
     },
     "xiaohongshu": {
       "kind": "search",
-      "domain": "cn_tech"
+      "domain": "community"
     },
     "yahoo": {
       "kind": "search",
@@ -421,10 +342,6 @@
     "zenodo": {
       "kind": "search",
       "domain": "paper"
-    },
-    "zhihu": {
-      "kind": "search",
-      "domain": "social"
     }
   },
   "fetch_urls": {
@@ -471,25 +388,10 @@
       "https://en.wikipedia.org/wiki/Information_retrieval",
       "https://zh.wikipedia.org/wiki/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2"
     ],
-    "newspaper": [
-      "https://en.wikipedia.org/wiki/Information_retrieval",
-      "https://www.w3.org/TR/html52/",
-      "https://www.gnu.org/software/bash/manual/"
-    ],
-    "readability": [
-      "https://en.wikipedia.org/wiki/Information_retrieval",
-      "https://www.w3.org/TR/html52/",
-      "https://www.gnu.org/software/bash/manual/"
-    ],
     "arxiv_fulltext": [
       "https://arxiv.org/abs/1705.10311",
       "https://arxiv.org/abs/2005.14165",
       "https://arxiv.org/abs/2303.08774"
-    ],
-    "deepwiki": [
-      "https://deepwiki.com/facebook/react",
-      "https://deepwiki.com/microsoft/vscode",
-      "https://deepwiki.com/python/cpython"
     ],
     "wayback": [
       "https://en.wikipedia.org/wiki/Web_scraping",

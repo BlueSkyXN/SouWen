@@ -37,7 +37,7 @@ class _Client:
 async def test_hostloc_search_uses_ddg_egress_but_target_domain_results():
     client = _Client()
     page = await HostLocSearchProvider(client).search(
-        SearchRequest(query="server", domains=("cn_tech",), page=SearchPageRequest(limit=2)),
+        SearchRequest(query="server", domains=("community",), page=SearchPageRequest(limit=2)),
         RequestContext(request_id="hostloc"),
         ExecutionContext.with_timeout(1),
     )

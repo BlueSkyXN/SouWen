@@ -87,7 +87,7 @@ def _response(
 def _request() -> SearchRequest:
     return SearchRequest(
         query="climate",
-        domains=("research_output",),
+        domains=("paper",),
         page=SearchPageRequest(limit=4),
     )
 

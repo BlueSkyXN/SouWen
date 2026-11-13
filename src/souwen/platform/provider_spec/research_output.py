@@ -58,7 +58,7 @@ def research_output_search_spec(*, provider_id: str, limit_keyword: str) -> Clie
     def project(response: Any, limit: int, context: RequestContext) -> SearchPage:
         return project_research_output_search_page(provider_id, response, limit, context)
 
-    return ClientSearchSpec(provider_id, "research_output", invoke, project)
+    return ClientSearchSpec(provider_id, "paper", invoke, project)
 
 
 def project_research_output_search_page(

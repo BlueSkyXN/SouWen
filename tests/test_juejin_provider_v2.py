@@ -37,7 +37,7 @@ class _Client:
 async def test_juejin_search_remains_cursor_free_canonically():
     client = _Client()
     page = await JuejinSearchProvider(client).search(
-        SearchRequest(query="python", domains=("cn_tech",), page=SearchPageRequest(limit=20)),
+        SearchRequest(query="python", domains=("community",), page=SearchPageRequest(limit=20)),
         RequestContext(request_id="juejin"),
         ExecutionContext.with_timeout(1),
     )

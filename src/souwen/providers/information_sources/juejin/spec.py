@@ -4,7 +4,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 JUEJIN_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="juejin",
     adapter_id="juejin-search",
-    domain="cn_tech",
+    domain="community",
     adapter_reason="existing cursor-paged JSON normalization requires a first-page bridge",
     transport=ClientTransportDeclaration(
         host="api.juejin.cn",

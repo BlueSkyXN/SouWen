@@ -4,7 +4,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 NODESEEK_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="nodeseek",
     adapter_id="nodeseek-search",
-    domain="cn_tech",
+    domain="community",
     adapter_reason="DDG HTML site-search and canonical URL identity require a bridge",
     transport=ClientTransportDeclaration(
         host="html.duckduckgo.com",

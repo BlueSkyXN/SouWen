@@ -7,7 +7,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 DATACITE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="datacite",
     adapter_id="datacite-search",
-    domain="research_output",
+    domain="paper",
     adapter_reason=(
         "DataCite's typed research-output projection retains metadata beyond the canonical Search DTO"
     ),

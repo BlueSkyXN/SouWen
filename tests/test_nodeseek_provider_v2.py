@@ -37,7 +37,7 @@ class _Client:
 async def test_nodeseek_search_projects_reviewed_site_result():
     client = _Client()
     page = await NodeSeekSearchProvider(client).search(
-        SearchRequest(query="node", domains=("cn_tech",), page=SearchPageRequest(limit=2)),
+        SearchRequest(query="node", domains=("community",), page=SearchPageRequest(limit=2)),
         RequestContext(request_id="nodeseek"),
         ExecutionContext.with_timeout(1),
     )

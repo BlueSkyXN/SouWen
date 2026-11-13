@@ -216,18 +216,16 @@ def test_spec_manifest_validation_fails_closed_on_each_contract_axis(
 @pytest.mark.parametrize(
     "domain",
     (
-        "paper",
-        "book",
-        "research_output",
-        "patent",
         "web",
         "news",
+        "paper",
+        "patent",
+        "book",
+        "code",
+        "community",
+        "wiki",
         "images",
         "videos",
-        "social",
-        "developer",
-        "cn_tech",
-        "knowledge",
     ),
 )
 def test_spec_accepts_each_canonical_search_domain(domain: str) -> None:

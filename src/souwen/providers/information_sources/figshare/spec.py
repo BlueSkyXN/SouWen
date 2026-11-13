@@ -7,7 +7,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 FIGSHARE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="figshare",
     adapter_id="figshare-search",
-    domain="research_output",
+    domain="paper",
     adapter_reason=(
         "Figshare's typed research-output projection retains metadata beyond the canonical Search DTO"
     ),

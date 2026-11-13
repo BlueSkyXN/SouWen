@@ -21,18 +21,16 @@ from .validators import _validate_proxy_url
 
 logger = logging.getLogger("souwen.config")
 SEARCH_DOMAINS = (
-    "paper",
-    "book",
-    "research_output",
-    "patent",
     "web",
     "news",
+    "paper",
+    "patent",
+    "book",
+    "code",
+    "community",
+    "wiki",
     "images",
     "videos",
-    "social",
-    "developer",
-    "cn_tech",
-    "knowledge",
 )
 DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {domain: CENSUS_CANDIDATE_ORDER[domain] for domain in SEARCH_DOMAINS}

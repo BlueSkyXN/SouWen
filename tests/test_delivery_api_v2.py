@@ -517,12 +517,11 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     expected = {
         "paper": "huggingface",
         "book": "library_of_congress",
-        "research_output": "datacite",
         "web": "yahoo",
         "news": "duckduckgo_news",
-        "developer": "stackoverflow",
-        "cn_tech": "juejin",
-        "knowledge": "wikipedia",
+        "code": "stackoverflow",
+        "community": "juejin",
+        "wiki": "wikipedia",
     }
 
     selected = {
@@ -533,7 +532,7 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     }
 
     assert selected == expected
-    for domain in ("patent", "images", "videos", "social"):
+    for domain in ("patent", "images", "videos"):
         with pytest.raises(ProviderError) as empty_domain:
             selector.select_default(SearchRequest(query="default", domains=(domain,)))
         assert empty_domain.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE

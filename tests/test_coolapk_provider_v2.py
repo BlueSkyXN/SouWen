@@ -26,7 +26,9 @@ class _Client:
 
 
 def _request(limit=3):
-    return SearchRequest(query="android", domains=("cn_tech",), page=SearchPageRequest(limit=limit))
+    return SearchRequest(
+        query="android", domains=("community",), page=SearchPageRequest(limit=limit)
+    )
 
 
 @pytest.mark.asyncio

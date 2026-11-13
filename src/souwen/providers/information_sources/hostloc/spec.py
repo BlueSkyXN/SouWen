@@ -4,7 +4,7 @@ from souwen.platform.provider_spec.models import HttpOperation
 HOSTLOC_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="hostloc",
     adapter_id="hostloc-search",
-    domain="cn_tech",
+    domain="community",
     adapter_reason="DDG HTML site-search and canonical URL identity require a bridge",
     transport=ClientTransportDeclaration(
         host="html.duckduckgo.com",

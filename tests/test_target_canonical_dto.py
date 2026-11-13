@@ -81,7 +81,7 @@ def test_search_dto_preserves_partial_provider_outcome() -> None:
 
 @pytest.mark.parametrize(
     "domain",
-    ("social", "developer", "cn_tech", "knowledge"),
+    ("code", "community", "wiki"),
 )
 def test_search_request_preserves_extended_registry_domains(domain: str) -> None:
     assert SearchRequest(query="fixture", domains=(domain,)).domains == (domain,)

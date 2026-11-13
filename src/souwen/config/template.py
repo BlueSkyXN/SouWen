@@ -134,18 +134,16 @@ search_demote_seconds: 600
 # ===== Search 有序默认 Provider =====
 # 必须覆盖 SEARCH_DOMAINS 的每一个领域。空列表表示该领域当前没有可用源。
 search_defaults:
-  paper: [huggingface, crossref, openalex, zenodo, eric, pubmed, europepmc, hal, doaj, iacr, arxiv, openaire, osti, semantic_scholar]
-  book: [library_of_congress, open_library, internet_archive]
-  research_output: [datacite, figshare]
-  patent: []
   web: [yahoo]
   news: [duckduckgo_news]
+  paper: [huggingface, crossref, openalex, datacite, zenodo, eric, pubmed, figshare, europepmc, hal, doaj, iacr, arxiv, openaire, osti, semantic_scholar]
+  patent: []
+  book: [library_of_congress, open_library, internet_archive]
+  code: [stackoverflow, github]
+  community: [juejin, coolapk]
+  wiki: [wikipedia]
   images: []
   videos: []
-  social: []
-  developer: [stackoverflow, github]
-  cn_tech: [juejin, coolapk]
-  knowledge: [wikipedia]
 
 # ===== 数据源频道配置 =====
 # 按源名称配置,覆盖全局默认值.
