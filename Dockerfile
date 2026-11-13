@@ -83,7 +83,10 @@ RUN pip install --no-deps ".[server,mcp,tls,web,robots,scraper,browser]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # 步骤 2b：Playwright Chromium（browser 级出口；依赖系统库）
-RUN playwright install --with-deps chromium \
+# libatomic1 必须先装：playwright 自带的 node 驱动缺它连 --with-deps 都跑不起来
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && playwright install --with-deps chromium \
     && python -c "import playwright; print('playwright OK')"
 
 # 步骤 3：复制运行时所需的脚本和配置文件
