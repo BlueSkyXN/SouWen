@@ -5,14 +5,12 @@
 #
 #  支持五种代理模式:
 #    wireproxy — 用户态 WireGuard → SOCKS5 (默认, 全平台兼容)
-#    kernel    — 内核 WireGuard + microsocks (需 NET_ADMIN, 高性能)
 #    usque     — MASQUE/QUIC 协议 (现代化方案, 支持 SOCKS5+HTTP)
-#    warp-cli  — 官方 Cloudflare 客户端 + GOST (功能最全, Docker 专用)
 #    external  — 外部代理容器 (零侵入, sidecar 架构)
 #
 #  环境变量:
 #    WARP_ENABLED=1          启用 WARP (默认关闭)
-#    WARP_MODE=auto          模式: auto (默认,自动检测) | wireproxy | kernel | usque | warp-cli | external
+#    WARP_MODE=auto          模式: auto (默认,自动检测) | wireproxy | usque | external
 #    WARP_CONFIG_B64          Base64 编码的配置 (wireproxy格式 或 WireGuard格式)
 #    WARP_ENDPOINT            自定义 WARP Endpoint (如 162.159.192.1:4500)
 #    WARP_SOCKS_PORT          SOCKS5 监听端口 (默认 1080)
@@ -23,10 +21,7 @@
 #    WARP_PROXY_PASSWORD      代理认证密码
 #    WARP_USQUE_CONFIG        usque 配置文件路径
 #    WARP_USQUE_TRANSPORT     usque 传输: auto | quic | http2
-#    WARP_HTTP_PORT           HTTP 代理端口 (usque/warp-cli, 默认不启用)
-#    WARP_LICENSE_KEY         WARP+ License Key (warp-cli 模式)
-#    WARP_TEAM_TOKEN          ZeroTrust Team Token (warp-cli 模式)
-#    WARP_GOST_ARGS           自定义 GOST 参数 (默认 -L :1080)
+#    WARP_HTTP_PORT           HTTP 代理端口 (usque, 默认不启用)
 #    WARP_EXTERNAL_PROXY      外部代理地址 (external 模式)
 #    GH_PROXY                 GitHub 下载代理前缀
 #
@@ -65,38 +60,6 @@ PersistentKeepalive = 15
 [Socks5]
 BindAddress = ${BIND_ADDRESS}:${SOCKS_PORT}
 WIREPROXY_EOF
-}
-
-_warp_patch_kernel_conf() {
-    # 为内核 WireGuard 模式洗白/优化配置
-    # 主要调整：纯 IPv4、去 DNS 防崩溃、心跳保活、删除兼容性问题
-    WG_CONF="$1"
-
-    # 提取纯 IPv4 地址（支持内核 WireGuard）
-    IPV4_ADDR=$(grep '^Address' "$WG_CONF" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]+' | head -1)
-
-    # 删除所有 Address / AllowedIPs / DNS (防止双栈崩溃)
-    sed -i '/^Address/d' "$WG_CONF"
-    sed -i '/^AllowedIPs/d' "$WG_CONF"
-    sed -i '/^DNS.*/d' "$WG_CONF"
-
-    # 重建纯 IPv4 规则（内核 WireGuard 兼容格式）
-    if [ -n "$IPV4_ADDR" ]; then
-        sed -i "/\[Interface\]/a Address = $IPV4_ADDR" "$WG_CONF"
-    fi
-    sed -i "/\[Peer\]/a AllowedIPs = 0.0.0.0\/0" "$WG_CONF"
-
-    # 注入心跳保活（防连接断开）
-    if ! grep -q "PersistentKeepalive" "$WG_CONF"; then
-        sed -i '/\[Peer\]/a PersistentKeepalive = 15' "$WG_CONF"
-    else
-        sed -i 's/PersistentKeepalive.*/PersistentKeepalive = 15/g' "$WG_CONF"
-    fi
-
-    # 删除 Alpine wg-quick 不兼容的路由标记
-    if [ -f /usr/bin/wg-quick ]; then
-        sed -i '/src_valid_mark/d' /usr/bin/wg-quick 2>/dev/null || true
-    fi
 }
 
 _warp_register() {
@@ -186,61 +149,6 @@ _warp_start_wireproxy() {
     echo "==> [WARP] wireproxy 已启动 (PID: ${WIREPROXY_PID})"
 }
 
-# kernel 模式 ===== 内核级 WireGuard 高性能代理 =====
-
-_warp_start_kernel() {
-    # 启动内核级 WireGuard + microsocks SOCKS5 组合
-    # 特点：高性能、低延迟、需要 NET_ADMIN 权限和 /dev/net/tun 支持
-    WG_CONF="/etc/wireguard/wg0.conf"
-    mkdir -p /etc/wireguard
-
-    # 获取配置：环境变量 > 持久化文件 > 自动注册
-    if [ -n "${WARP_CONFIG_B64:-}" ]; then
-        printf '%s' "${WARP_CONFIG_B64}" | base64 -d > "$WG_CONF"
-        echo "==> [WARP] ✅ 从 WARP_CONFIG_B64 加载配置"
-    elif [ -f "/app/data/wg0.conf" ]; then
-        cp /app/data/wg0.conf "$WG_CONF"
-        echo "==> [WARP] ✅ 从持久化文件加载配置"
-    else
-        # 自动注册新配置
-        if ! _warp_register "$WG_CONF"; then return 1; fi
-        # 持久化配置到数据卷
-        if [ -d /app/data ]; then
-            cp "$WG_CONF" /app/data/wg0.conf 2>/dev/null || true
-        fi
-    fi
-
-    # 洗白配置为内核 WireGuard 兼容格式
-    _warp_patch_kernel_conf "$WG_CONF"
-
-    # 应用自定义 Endpoint
-    if [ -n "${WARP_ENDPOINT:-}" ]; then
-        _escaped_ep=$(printf '%s\n' "${WARP_ENDPOINT}" | sed 's/\\/\\\\/g; s/[|&/]/\\&/g')
-        sed -i "s|^Endpoint.*|Endpoint = ${_escaped_ep}|" "$WG_CONF"
-        echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
-    fi
-
-    # 检查依赖：wg-quick（内核 WireGuard 管理）和 microsocks（SOCKS5 代理）
-    if ! command -v wg-quick >/dev/null 2>&1; then
-        echo "==> [WARP] ❌ wireguard-tools 未安装 (需要 --build-arg WARP_KERNEL=1 构建)"
-        return 1
-    fi
-    if ! command -v microsocks >/dev/null 2>&1; then
-        echo "==> [WARP] ❌ microsocks 未安装"
-        return 1
-    fi
-
-    # 启动内核网卡
-    echo "==> [WARP] 正在启动 Linux 内核级 wg0 网卡..."
-    wg-quick up wg0 2>/dev/null
-
-    # 启动 microsocks SOCKS5 代理（监听本地端口）
-    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
-    microsocks -i "${WARP_BIND_ADDRESS}" -p "${WARP_SOCKS_PORT}" &
-    MICROSOCKS_PID=$!
-    echo "==> [WARP] microsocks 已启动 (PID: ${MICROSOCKS_PID})"
-}
-
 # usque 模式 ===== MASQUE/QUIC 协议代理 =====
 
 _warp_start_usque() {
@@ -291,58 +199,6 @@ _warp_start_usque() {
     fi
 }
 
-# warp-cli 模式 ===== 官方客户端 + GOST 代理 =====
-
-_warp_start_warp_cli() {
-    # 启动 Cloudflare 官方 warp-cli + GOST 代理
-    # 特点：功能最全、支持 WARP+/ZeroTrust、资源占用较大
-
-    if ! command -v warp-cli >/dev/null 2>&1; then
-        echo "==> [WARP] ❌ warp-cli 未安装"
-        return 1
-    fi
-    if ! command -v gost >/dev/null 2>&1; then
-        echo "==> [WARP] ❌ GOST 未安装"
-        return 1
-    fi
-
-    # 启动 warp-svc 守护进程
-    warp-svc &
-    sleep "${WARP_SLEEP:-2}"
-
-    # 注册（如果需要）
-    if ! warp-cli --accept-tos registration show >/dev/null 2>&1; then
-        echo "==> [WARP] 正在注册 warp-cli..."
-        warp-cli --accept-tos registration new 2>/dev/null
-
-        # 设置 License Key
-        if [ -n "${WARP_LICENSE_KEY:-}" ]; then
-            warp-cli --accept-tos registration license "${WARP_LICENSE_KEY}" 2>/dev/null
-            echo "==> [WARP] ✅ License Key 已应用"
-        fi
-
-        # 设置 ZeroTrust
-        if [ -n "${WARP_TEAM_TOKEN:-}" ]; then
-            warp-cli --accept-tos registration organization --jwt-token "${WARP_TEAM_TOKEN}" 2>/dev/null
-            echo "==> [WARP] ✅ ZeroTrust 已配置"
-        fi
-    fi
-
-    # 设置代理模式并连接
-    warp-cli --accept-tos mode proxy 2>/dev/null
-    warp-cli --accept-tos connect 2>/dev/null
-    sleep 1
-
-    # 启动 GOST 代理
-    # warp-cli proxy 模式默认监听 127.0.0.1:40000，GOST 需转发到上游
-    WARP_UPSTREAM="socks5://127.0.0.1:40000"
-    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
-    GOST_ARGS="${WARP_GOST_ARGS:--L socks5://${WARP_BIND_ADDRESS}:${WARP_SOCKS_PORT} -F ${WARP_UPSTREAM}}"
-    gost ${GOST_ARGS} &
-    GOST_PID=$!
-    echo "==> [WARP] GOST 代理已启动 (PID: ${GOST_PID})"
-}
-
 # external 模式 ===== 外部代理容器 =====
 
 _warp_start_external() {
@@ -364,8 +220,8 @@ _warp_start_external() {
 
 _warp_detect_mode() {
     # 自动检测最佳可用代理模式
-    # 优先级：external(已配置) > usque > wireproxy > kernel > none
-    local modes="external usque wireproxy kernel"
+    # 优先级：external(已配置) > usque > wireproxy > none
+    local modes="external usque wireproxy"
 
     for mode in $modes; do
         case $mode in
@@ -377,11 +233,6 @@ _warp_detect_mode() {
                 ;;
             wireproxy)
                 command -v wireproxy >/dev/null 2>&1 && echo "wireproxy" && return 0
-                ;;
-            kernel)
-                command -v wg-quick >/dev/null 2>&1 && \
-                    command -v microsocks >/dev/null 2>&1 && \
-                    echo "kernel" && return 0
                 ;;
         esac
     done
@@ -399,12 +250,6 @@ _warp_mode_available() {
         wireproxy)
             command -v wireproxy >/dev/null 2>&1
             ;;
-        kernel)
-            command -v wg-quick >/dev/null 2>&1 && command -v microsocks >/dev/null 2>&1
-            ;;
-        warp-cli)
-            command -v warp-cli >/dev/null 2>&1 && command -v gost >/dev/null 2>&1
-            ;;
         *)
             return 1
             ;;
@@ -414,9 +259,7 @@ _warp_mode_available() {
 _warp_start_mode() {
     case "$1" in
         wireproxy) _warp_start_wireproxy ;;
-        kernel) _warp_start_kernel ;;
         usque) _warp_start_usque ;;
-        warp-cli) _warp_start_warp_cli ;;
         external) _warp_start_external ;;
         *) return 1 ;;
     esac
@@ -427,17 +270,9 @@ _warp_stop_mode() {
         wireproxy)
             [ -n "${WIREPROXY_PID:-}" ] && kill "${WIREPROXY_PID}" 2>/dev/null || true
             ;;
-        kernel)
-            [ -n "${MICROSOCKS_PID:-}" ] && kill "${MICROSOCKS_PID}" 2>/dev/null || true
-            wg-quick down wg0 >/dev/null 2>&1 || true
-            ;;
         usque)
             [ -n "${USQUE_PID:-}" ] && kill "${USQUE_PID}" 2>/dev/null || true
             [ -n "${USQUE_HTTP_PID:-}" ] && kill "${USQUE_HTTP_PID}" 2>/dev/null || true
-            ;;
-        warp-cli)
-            [ -n "${GOST_PID:-}" ] && kill "${GOST_PID}" 2>/dev/null || true
-            warp-cli --accept-tos disconnect >/dev/null 2>&1 || true
             ;;
     esac
 }
@@ -503,7 +338,7 @@ warp_init() {
 
     if [ "$WARP_AUTO_MODE" = "1" ]; then
         WARP_STARTED=0
-        for candidate in external usque wireproxy kernel; do
+        for candidate in external usque wireproxy; do
             if ! _warp_mode_available "$candidate"; then
                 continue
             fi
@@ -527,7 +362,7 @@ warp_init() {
         echo "==> [WARP] 自动选择模式: ${WARP_MODE}"
     else
         if ! _warp_mode_available "$WARP_MODE"; then
-            echo "==> [WARP] ❌ 未知或不可用模式: ${WARP_MODE} (支持: auto, wireproxy, kernel, usque, warp-cli, external)"
+            echo "==> [WARP] ❌ 未知或不可用模式: ${WARP_MODE} (支持: auto, wireproxy, usque, external)"
             return 0
         fi
         _warp_start_mode "$WARP_MODE" || { echo "==> [WARP] ⚠️ ${WARP_MODE} 启动失败，继续无代理运行"; return 0; }
@@ -550,18 +385,12 @@ warp_init() {
     _WARP_PROXY_TYPE="socks5"
     if [ "$WARP_MODE" = "wireproxy" ]; then
         _WARP_PID="${WIREPROXY_PID:-}"
-    elif [ "$WARP_MODE" = "kernel" ]; then
-        _WARP_PID="${MICROSOCKS_PID:-}"
     elif [ "$WARP_MODE" = "usque" ]; then
         _WARP_PID="${USQUE_PID:-}"
         _WARP_PROTOCOL="masque"
         if [ "${WARP_HTTP_PORT:-0}" -gt 0 ] 2>/dev/null; then
             _WARP_PROXY_TYPE="both"
         fi
-    elif [ "$WARP_MODE" = "warp-cli" ]; then
-        _WARP_PID="${GOST_PID:-}"
-        _WARP_PROTOCOL="official"
-        _WARP_PROXY_TYPE="both"
     elif [ "$WARP_MODE" = "external" ]; then
         _WARP_PID="0"
     fi

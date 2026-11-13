@@ -1,15 +1,3 @@
-# ===== 第一阶段：编译 microsocks SOCKS5 代理 =====
-FROM alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS microsocks-builder
-# microsocks 是 C 语言编写的轻量级 SOCKS5 服务器，用于 WARP 内核模式
-ARG MICROSOCKS_REF=96bf8a87408c36951b73b7957687f42904e620f8
-RUN apk add --no-cache build-base git && \
-    git init /src && \
-    git -C /src remote add origin https://github.com/rofl0r/microsocks.git && \
-    git -C /src fetch --depth 1 origin "${MICROSOCKS_REF}" && \
-    git -C /src checkout --detach FETCH_HEAD && \
-    test "$(git -C /src rev-parse HEAD)" = "${MICROSOCKS_REF}" && \
-    make -C /src
-
 # ===== 第三阶段：最终运行时镜像 =====
 FROM python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93
 
@@ -23,7 +11,7 @@ ARG SOUWEN_SOURCE_SHA=""
 # 环境变量配置
 # WARP 代理环境变量
 # WARP_ENABLED=1          启用 WARP
-# WARP_MODE=auto          模式: auto|wireproxy|kernel|usque|warp-cli|external
+# WARP_MODE=auto          模式: auto|wireproxy|usque|external
 # WARP_SOCKS_PORT=1080    SOCKS5 端口
 # WARP_HTTP_PORT=0        HTTP 代理端口（0=不启用）
 # WARP_ENDPOINT           自定义 Endpoint
@@ -36,10 +24,9 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai
 
 # ===== 系统依赖安装 =====
-# 安装 WARP 相关工具：curl、wireguard-tools
-# 安装时区数据和网络工具
+# 安装时区数据与基础工具（wireguard-tools/iptables 仅内核模式需要，已随模式裁剪删除）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl tzdata wireguard-tools iptables iproute2 \
+        curl tzdata \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -49,7 +36,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # - wgcf: Cloudflare WARP 配置生成工具
 # - wireproxy: 用户态 WireGuard SOCKS5 代理
 # - usque: MASQUE/QUIC 协议 WARP 客户端
-# - microsocks: 轻量级 SOCKS5 代理（内核模式）
 COPY scripts/warp-checksums.txt /tmp/warp-checksums.txt
 RUN set -eu; \
     ARCH="$(dpkg --print-architecture)"; \
@@ -73,10 +59,6 @@ RUN set -eu; \
     python -c "import zipfile; zipfile.ZipFile('/tmp/usque.zip').extract('usque', '/usr/local/bin')"; \
     chmod +x /usr/local/bin/usque; \
     rm -f /tmp/wgcf /tmp/wireproxy.tar.gz /tmp/usque.zip /tmp/warp-checksums.txt
-
-# 复制预编译的 microsocks 可执行文件
-COPY --from=microsocks-builder /src/microsocks /usr/local/bin/microsocks
-RUN chmod +x /usr/local/bin/microsocks
 
 WORKDIR /app
 LABEL org.opencontainers.image.revision="${SOUWEN_SOURCE_SHA}"

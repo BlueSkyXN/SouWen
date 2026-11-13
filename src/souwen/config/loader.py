@@ -172,9 +172,6 @@ _WARP_ENV_ALIASES = {
     "warp_usque_on_connect": "WARP_USQUE_ON_CONNECT",
     "warp_usque_on_disconnect": "WARP_USQUE_ON_DISCONNECT",
     "warp_http_port": "WARP_HTTP_PORT",
-    "warp_license_key": "WARP_LICENSE_KEY",
-    "warp_team_token": "WARP_TEAM_TOKEN",
-    "warp_gost_args": "WARP_GOST_ARGS",
     "warp_external_proxy": "WARP_EXTERNAL_PROXY",
 }
 
