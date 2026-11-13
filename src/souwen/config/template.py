@@ -104,6 +104,8 @@ search_provider_timeout: 10
 search_request_budget: 25
 search_demote_after: 3
 search_demote_seconds: 600
+# jina_reader 作为抓取最后兜底（第三方免费服务），默认关闭
+jina_fallback_enabled: false
 
 # ===== Search 有序默认 Provider =====
 # 必须覆盖 SEARCH_DOMAINS 的每一个领域。空列表表示该领域当前没有可用源。

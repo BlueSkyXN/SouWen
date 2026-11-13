@@ -23,6 +23,7 @@ from souwen.config import SouWenConfig
 from souwen.common_runtime.channel_overrides import without_source_channel_overrides
 from souwen.delivery.browser_worker_client import BrowserWorkerClient
 from souwen.modules.fetch.api import FetchModuleService
+from souwen.modules.fetch.application.orchestration import SiteHandler
 from souwen.modules.search.api import SearchModuleService
 from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
@@ -1587,6 +1588,19 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         demote_seconds=config.search_demote_seconds,
     )
     browser_client = _browser_client()
+
+    # arxiv 站点处理器：URL 匹配 arxiv.org 论文页时先走专用全文源（SPEC 4.1）
+    def _matches_arxiv_publication(target: str) -> bool:
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(target)
+        return parsed.hostname == "arxiv.org" and any(
+            parsed.path.startswith(prefix) for prefix in ("/abs/", "/pdf/", "/html/")
+        )
+
+    last_resort: list[tuple[str, str]] = [("wayback", "wayback-fetch")]
+    if config.jina_fallback_enabled:
+        last_resort.append(("jina_reader", "jina-reader-fetch"))
     fetch = FetchModuleService(
         manager,
         provider_adapter_ids={
@@ -1612,6 +1626,14 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             },
         },
         browser_executor=browser_client,
+        site_handlers=(
+            SiteHandler(
+                provider_id="arxiv_fulltext",
+                adapter_id="arxiv_fulltext-fetch",
+                matches=_matches_arxiv_publication,
+            ),
+        ),
+        last_resort_providers=tuple(last_resort),
     )
     paper_primary = search_selector.select_default(
         SearchRequest(query="readiness", domains=("paper",))

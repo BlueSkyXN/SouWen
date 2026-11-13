@@ -191,6 +191,8 @@ class SouWenConfig(BaseModel):
     timeout: int = 30
     max_retries: int = 3
     search_provider_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    # jina_reader 作为抓取最后兜底（第三方免费服务），默认关闭（PRD 4.4）
+    jina_fallback_enabled: bool = False
     search_request_budget: float = Field(default=25.0, ge=1.0, le=120.0)
     search_demote_after: int = Field(default=3, ge=1, le=20)
     search_demote_seconds: float = Field(default=600.0, ge=1.0, le=86400.0)

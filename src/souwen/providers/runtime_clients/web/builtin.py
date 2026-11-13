@@ -643,12 +643,21 @@ class BuiltinFetcherClient(BaseScraper):
                             selector,
                             url,
                         )
-                        extracted = _extract_with_trafilatura(html, url)
+                        from souwen.providers.runtime_clients.web._extractor_chain import (
+                            extract_body,
+                        )
+
+                        extracted = await extract_body(html, url)
                 except ImportError:
                     logger.warning("bs4/lxml not installed, ignoring CSS selector")
-                    extracted = _extract_with_trafilatura(html, url)
+                    from souwen.providers.runtime_clients.web._extractor_chain import extract_body
+
+                    extracted = await extract_body(html, url)
             else:
-                extracted = _extract_with_trafilatura(html, url)
+                # 提取器链：trafilatura → readability → newspaper（SPEC 4.2）
+                from souwen.providers.runtime_clients.web._extractor_chain import extract_body
+
+                extracted = await extract_body(html, url)
             content = extracted["content"]
 
             # 更好的内容验证：检查长度和词数（基于完整提取结果）

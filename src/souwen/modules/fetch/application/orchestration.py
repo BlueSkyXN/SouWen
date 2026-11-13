@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -37,6 +37,15 @@ class _ProviderSelection:
     adapter_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class SiteHandler:
+    """One URL-matched handler that runs before the generic fetch (SPEC 4.1)."""
+
+    provider_id: str
+    adapter_id: str
+    matches: Callable[[str], bool]
+
+
 class FetchProviderManager(Protocol):
     async def execute(
         self,
@@ -67,6 +76,9 @@ class FetchModuleService:
         configured_adapter_id: str = BUILTIN_FETCH_ADAPTER_ID,
         provider_adapter_ids: Mapping[str, str] | None = None,
         browser_executor: BrowserFetchExecutor | None = None,
+        *,
+        site_handlers: tuple[SiteHandler, ...] = (),
+        last_resort_providers: tuple[tuple[str, str], ...] = (),
     ) -> None:
         if not configured_adapter_id.strip():
             raise ValueError("configured_adapter_id must not be blank")
@@ -82,6 +94,11 @@ class FetchModuleService:
         ):
             raise ValueError("provider and adapter IDs must not be blank")
         self._browser_executor = browser_executor
+        self._site_handlers = site_handlers
+        self._last_resort = tuple(
+            _ProviderSelection(provider_id, adapter_id)
+            for provider_id, adapter_id in last_resort_providers
+        )
 
     async def fetch(
         self,
@@ -139,6 +156,17 @@ class FetchModuleService:
             raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
         return tuple(selections)
 
+    def _default_chain(self, target: str) -> tuple[_ProviderSelection, ...]:
+        """Default per-target chain: matched site handlers → builtin → last resorts."""
+
+        chain: list[_ProviderSelection] = []
+        for handler in self._site_handlers:
+            if handler.matches(target):
+                chain.append(_ProviderSelection(handler.provider_id, handler.adapter_id))
+        chain.append(_ProviderSelection(self._adapter_id, self._adapter_id))
+        chain.extend(self._last_resort)
+        return tuple(chain)
+
     async def _fetch_target_with_fallback(
         self,
         target: object,
@@ -150,7 +178,11 @@ class FetchModuleService:
         provenance: list[Provenance] = []
         low_quality: _TargetOutcome | None = None
         last_outcome: _TargetOutcome | None = None
-        for selection in selections:
+        chain = self._default_chain(str(target)) if request.providers is None else selections
+        for selection in chain:
+            if low_quality is not None and selection in self._last_resort:
+                # SPEC 4.4：wayback/jina 只在页面不可达时兜底；已拿到低质量正文时不启用
+                break
             execution.raise_if_cancelled_or_expired()
             outcome = await self._fetch_target(target, request, context, execution, selection)
             provenance.extend(outcome.result.provenance)
