@@ -496,6 +496,8 @@ class BaseScraper:
             climbs = 0
             while True:
                 try:
+                    # 未到天花板的级别只试一次：快速失败换快速爬级，
+                    # 完整重试预算留给天花板级别，避免阶梯把请求预算烧光。
                     resp = await self._request_with_retries(
                         method,
                         url,
@@ -504,6 +506,7 @@ class BaseScraper:
                         data,
                         egress_level,
                         display_url,
+                        attempts=(1 if int(egress_level) < int(bounds.max_level) else None),
                     )
                 except (SourceUnavailableError, RateLimitError) as exc:
                     self._egress_planner.report_failure(urlsplit(url).hostname or "", egress_level)
@@ -587,11 +590,13 @@ class BaseScraper:
         data: dict[str, Any] | None,
         egress_level,
         display_url: str,
+        attempts: int | None = None,
     ) -> Any:
-        """按给定 egress 级别执行一次完整的常规重试循环。"""
+        """按给定 egress 级别执行一次常规重试循环；attempts 可收窄次数。"""
 
         last_error: Exception | None = None
-        for attempt in range(1, max(1, self.max_retries) + 1):
+        budget = max(1, attempts if attempts is not None else self.max_retries)
+        for attempt in range(1, budget + 1):
             await self._polite_delay()
             try:
                 resp = await self._do_request(
@@ -599,6 +604,9 @@ class BaseScraper:
                 )
                 if resp.status_code == 429:
                     self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
+                    if budget == 1:
+                        # 还能爬级：不在本级睡等待，把时间留给更高级别
+                        raise RateLimitError(f"被限流 (429): {display_url}")
                     retry_after = resp.headers.get("Retry-After")
                     try:
                         wait = float(retry_after) if retry_after else (2**attempt)
@@ -611,6 +619,10 @@ class BaseScraper:
                 if resp.status_code in (401, 403):
                     raise SourceUnavailableError(f"访问被拒 ({resp.status_code}): {display_url}")
                 if resp.status_code >= 500:
+                    if budget == 1:
+                        raise SourceUnavailableError(
+                            f"服务器错误 ({resp.status_code}): {display_url}"
+                        )
                     logger.warning("服务器错误 (%d)，第 %d 次重试", resp.status_code, attempt)
                     await asyncio.sleep(2**attempt)
                     continue
