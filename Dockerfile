@@ -88,6 +88,7 @@ RUN playwright install --with-deps chromium \
 
 # 步骤 3：复制运行时所需的脚本和配置文件
 COPY souwen.example.yaml ./
+COPY scripts/census/queries.json /app/scripts/census/queries.json
 COPY scripts/warp-init.sh /usr/local/bin/warp-init.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/warp-init.sh /usr/local/bin/entrypoint.sh

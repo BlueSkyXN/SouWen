@@ -151,6 +151,26 @@ jobs:
             --markdown-report "reports/${{ steps.label.outputs.label }}/fetch.md" \
             --summary-file "$GITHUB_STEP_SUMMARY" || true
 
+      - name: Probe /mcp (streamable HTTP)
+        run: |
+          status=$(curl -s -o /tmp/mcp-probe.out -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $CENSUS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"census","version":"0"}}}' \
+            "http://127.0.0.1:${HOST_PORT}/mcp")
+          echo "mcp initialize status: $status"
+          grep -q '"serverInfo"' /tmp/mcp-probe.out && echo "mcp initialize payload OK"
+
+      - name: Run doctor --live (per egress level)
+        if: always()
+        run: |
+          docker exec souwen souwen doctor --live --level all \
+            --json-file /tmp/doctor-live.json \
+            > "reports/${{ steps.label.outputs.label }}/doctor-live.txt" 2>&1 || true
+          docker cp souwen:/tmp/doctor-live.json \
+            "reports/${{ steps.label.outputs.label }}/doctor-live.json" || true
+
       - name: Dump container log tail
         if: always()
         run: docker logs souwen 2>&1 | tail -200 || true

@@ -42,6 +42,17 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     from souwen.config import get_config
     from souwen.server.v2_runtime import build_target_runtime
 
+    if args.live:
+        from souwen.server.doctor import print_live_reports, run_live_census
+
+        levels = (
+            ["direct", "impersonate", "proxy", "browser"] if args.level == "all" else [args.level]
+        )
+        only = {item.strip() for item in args.only.split(",")} if args.only else None
+        reports = run_live_census(levels, only=only)
+        print_live_reports(reports, json_file=args.json_file)
+        return 0
+
     config = get_config()
     runtime = build_target_runtime(config)
     try:
@@ -85,6 +96,18 @@ def build_parser() -> argparse.ArgumentParser:
     serve.set_defaults(func=_cmd_serve)
 
     doctor = sub.add_parser("doctor", help="diagnose the local runtime")
+    doctor.add_argument(
+        "--live",
+        action="store_true",
+        help="probe every available search source per egress level in-process",
+    )
+    doctor.add_argument(
+        "--level",
+        default="all",
+        help="egress level for --live: direct|impersonate|proxy|browser|all (default all)",
+    )
+    doctor.add_argument("--only", default=None, help="comma-separated source ids for --live")
+    doctor.add_argument("--json-file", default=None, help="write the --live report as JSON")
     doctor.set_defaults(func=_cmd_doctor)
     return parser
 
