@@ -310,20 +310,6 @@ async def test_three_entries_agree_on_the_same_underlying_result(monkeypatch) ->
 # --- 保留的 runtime 组合测试（原 delivery 合同测试中仍有效的部分） ---
 
 
-def test_composition_root_requires_the_shared_browser_inventory_digest(monkeypatch) -> None:
-    from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
-
-    monkeypatch.setenv("SOUWEN_BROWSER_WORKER_TOKEN", "w" * 48)
-
-    runtime = build_target_runtime(SouWenConfig())
-
-    assert runtime.browser_client is not None
-    assert (
-        runtime.browser_client._expected_inventory_digest
-        == BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
-    )
-
-
 def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     monkeypatch,
 ) -> None:

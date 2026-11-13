@@ -21,7 +21,7 @@ from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
 from souwen.common_runtime.channel_overrides import without_source_channel_overrides
-from souwen.delivery.browser_worker_client import BrowserWorkerClient
+from souwen.server.browser_executor import InProcessBrowserFetchExecutor
 from souwen.modules.fetch.api import FetchModuleService
 from souwen.modules.fetch.application.orchestration import SiteHandler
 from souwen.modules.search.api import SearchModuleService
@@ -271,7 +271,6 @@ from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 from souwen.providers.runtime_clients.web.yahoo import YahooClient
 from souwen.providers.runtime_clients.web.yandex import YandexClient
 from souwen.providers.runtime_clients.web.youtube import YouTubeClient
-from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
 class _OpenAlexRuntimeClient:
@@ -1025,7 +1024,7 @@ class TargetRuntime:
     services: TargetDeliveryServices
     metadata: RuntimeMetadata
     manager: ProviderManager
-    browser_client: BrowserWorkerClient | None
+    browser_client: InProcessBrowserFetchExecutor | None
 
     async def close(self) -> None:
         failure: Exception | None = None
@@ -1143,20 +1142,22 @@ def _patentsview_api_key(config: SouWenConfig) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def _browser_client() -> BrowserWorkerClient | None:
-    token = os.environ.get("SOUWEN_BROWSER_WORKER_TOKEN")
-    if token is None:
+def _browser_client() -> InProcessBrowserFetchExecutor | None:
+    """Browser Worker 已并入主进程（SPEC 5.6）：Playwright 可用即启用浏览器级。
+
+    未安装 Playwright/Chromium 时返回 None，阶梯在前三级内工作，不报启动错误。
+    """
+    try:
+        from pathlib import Path as _Path
+
+        from playwright._impl._driver import compute_driver_executable
+
+        driver = compute_driver_executable()
+        if driver is None or not _Path(driver).exists():
+            return None
+    except Exception:
         return None
-    port = os.environ.get("SOUWEN_BROWSER_WORKER_PORT", "49266").strip()
-    config_revision = os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None
-    return BrowserWorkerClient(
-        base_url=f"http://127.0.0.1:{port}",
-        token=token,
-        expected_source_sha=get_source_sha(),
-        expected_config_revision=config_revision,
-        expected_runtime_version=__version__,
-        expected_inventory_digest=BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST,
-    )
+    return InProcessBrowserFetchExecutor()
 
 
 def _validate_transport_configuration(configuration, *, provider_id: str) -> None:
@@ -1648,7 +1649,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         worker_source_sha = None
         if browser_client is not None:
             try:
-                worker_receipt = await browser_client.readiness(
+                await browser_client.readiness(
                     RequestContext(request_id=get_request_id()),
                     ExecutionContext.with_timeout(2),
                 )
@@ -1657,7 +1658,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             else:
                 browser_ready = True
                 browser_status = "ready"
-                worker_source_sha = worker_receipt.evidence.source_sha
         ready = providers_ready and browser_ready
         components = {
             "api": "ready",

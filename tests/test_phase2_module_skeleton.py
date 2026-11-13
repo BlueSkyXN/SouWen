@@ -17,7 +17,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = REPOSITORY_ROOT / "src" / "souwen"
 
 SKELETON_PACKAGES = (
-    "souwen.delivery",
     "souwen.modules",
     "souwen.modules.search",
     "souwen.modules.search.api",

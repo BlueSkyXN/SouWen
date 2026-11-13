@@ -16,7 +16,6 @@ def test_runtime_provenance_has_no_domain_or_delivery_dependencies() -> None:
     source = Path(provenance.__file__).read_text(encoding="utf-8")
 
     for forbidden in (
-        "souwen.delivery",
         "souwen.modules",
         "souwen.providers",
         "souwen.server",

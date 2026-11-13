@@ -638,6 +638,39 @@ class BaseScraper:
         except Exception:
             pass
 
+    async def _browser_request(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None,
+        headers: dict[str, str],
+    ) -> httpx.Response:
+        """BROWSER 级别：Chromium 载入页面，HTML 包成 httpx.Response 交给同一解析函数。
+
+        仅支持 GET（SPEC 5.4 的"取结果页 HTML"）；POST 视为该级别失败，
+        由阶梯向上层报告真实错误类别。
+        """
+
+        if method.upper() != "GET":
+            raise SourceUnavailableError("browser egress supports GET only")
+        from souwen.common_runtime.provider_support import browser_fetch
+
+        target_url = str(httpx.URL(url, params=params)) if params else url
+        outcome = await browser_fetch.fetch_page_html(
+            target_url,
+            timeout_seconds=self._request_timeout,
+            proxy=self._proxy,
+        )
+        request = httpx.Request("GET", target_url)
+        response = httpx.Response(
+            int(200),
+            text=outcome.content,
+            request=request,
+            headers={"content-type": "text/html"},
+        )
+        response.extensions["souwen_egress"] = "browser"
+        return response
+
     def _lazy_direct_httpx(self) -> httpx.AsyncClient:
         """无代理、无指纹 TLS 的 httpx 客户端（DIRECT 级别）。"""
 
@@ -759,6 +792,8 @@ class BaseScraper:
         if egress_level is not None:
             from souwen.common_runtime.egress import EgressLevel
 
+            if egress_level is EgressLevel.BROWSER:
+                return await self._browser_request(method, url, params, headers)
             if egress_level is EgressLevel.DIRECT:
                 client = self._lazy_direct_httpx()
                 return await client.request(method, url, params=params, headers=headers, data=data)

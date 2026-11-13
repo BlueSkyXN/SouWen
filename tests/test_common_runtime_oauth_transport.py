@@ -103,7 +103,6 @@ def test_canonical_oauth_module_has_no_legacy_or_domain_dependencies() -> None:
     for forbidden in (
         "souwen.config",
         "souwen.common_runtime.provider_support",
-        "souwen.delivery",
         "souwen.modules",
         "souwen.providers",
         "souwen.server",

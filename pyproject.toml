@@ -64,6 +64,8 @@ scraper = ["curl-cffi>=0.14.0"]
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29", "mcp>=1.26,<2"]
 # 仅 stdio MCP server（无 HTTP 服务）
 mcp = ["mcp>=1.26,<2"]
+# 无头浏览器级出口（Playwright Chromium；未安装时该级自动不可用，不报启动错误）
+browser = ["playwright>=1.40"]
 # 开发工具：单元测试、覆盖率、代码检查
 dev = [
     "pytest>=8.0",

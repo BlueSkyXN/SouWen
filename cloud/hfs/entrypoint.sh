@@ -39,17 +39,17 @@ if [ -n "${SOUWEN_CONFIG_B64}" ]; then
 fi
 
 # ----- 依赖检查 -----
+# Browser Worker 已并入主进程（SPEC 5.6），浏览器级出口随主进程提供
 python -c "
 import fastapi, playwright, uvicorn, souwen
-from souwen.worker.browser_fetch.runtime import BrowserWorkerSettings
 print('✅ 依赖检查通过')
 "
 
 echo "=========================================="
-echo "🚀 启动 Supervisor → API 0.0.0.0:${PORT} + Browser Worker loopback"
+echo "🚀 启动服务 → 0.0.0.0:${PORT}（HTTP + /mcp，browser 级内建）"
 echo "=========================================="
 
 # Ignore HUP so HFS load-balancer reconnects don't kill the server
 trap '' HUP
 
-exec python /app/deploy/process/supervisor.py
+exec souwen serve --host 0.0.0.0 --port "${PORT}"

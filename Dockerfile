@@ -93,12 +93,16 @@ RUN if [ -n "${SOUWEN_SOURCE_SHA}" ]; then \
 # 步骤 1：复制项目配置和版本信息，安装 Server 运行面依赖
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
-RUN pip install ".[server,mcp,tls,web,robots,scraper]"
+RUN pip install ".[server,mcp,tls,web,robots,scraper,browser]"
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
 COPY src/ ./src/
-RUN pip install --no-deps ".[server,mcp,tls,web,robots,scraper]" \
+RUN pip install --no-deps ".[server,mcp,tls,web,robots,scraper,browser]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
+
+# 步骤 2b：Playwright Chromium（browser 级出口；依赖系统库）
+RUN playwright install --with-deps chromium \
+    && python -c "import playwright; print('playwright OK')"
 
 # 步骤 3：复制运行时所需的脚本和配置文件
 COPY souwen.example.yaml ./

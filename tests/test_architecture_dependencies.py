@@ -85,11 +85,9 @@ def test_modules_may_depend_on_provider_spi_but_not_platform_assembly(
     "imported",
     [
         "souwen",
-        "souwen.delivery",
         "souwen.server",
         "souwen.config",
         "souwen.platform",
-        "souwen.worker",
         "souwen.modules.search",
         "souwen.providers.information_sources.openalex",
         "souwen.providers.runtime_clients.web.fetch",
@@ -167,11 +165,6 @@ def test_catalog_and_runtime_client_lazy_loading_are_explicitly_allowed(tmp_path
         ),
         (
             "src/souwen/providers/information_sources/openalex/adapter.py",
-            "from souwen.delivery.api import routes\n",
-            "DEP-002",
-        ),
-        (
-            "src/souwen/providers/information_sources/openalex/adapter.py",
             "from souwen.providers.information_sources.crossref import adapter\n",
             "DEP-003",
         ),
@@ -184,11 +177,6 @@ def test_catalog_and_runtime_client_lazy_loading_are_explicitly_allowed(tmp_path
             "src/souwen/modules/fetch/application/service.py",
             "from fastapi import Depends\n",
             "DEP-005",
-        ),
-        (
-            "src/souwen/delivery/api/routes.py",
-            "from souwen.providers.fetch_sources.builtin import client\n",
-            "DEP-006",
         ),
         (
             "contracts/golden.py",
@@ -239,12 +227,6 @@ def test_relative_and_literal_dynamic_imports_are_resolved(tmp_path: Path) -> No
             "from souwen import providers\n",
             "DEP-001",
             "souwen.providers",
-        ),
-        (
-            "src/souwen/providers/information_sources/openalex/adapter.py",
-            "from souwen import delivery\n",
-            "DEP-002",
-            "souwen.delivery",
         ),
         (
             "src/souwen/common_runtime/transport/client.py",

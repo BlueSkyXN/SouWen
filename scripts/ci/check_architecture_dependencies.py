@@ -245,8 +245,6 @@ def _rule_for(edge: ImportEdge) -> str | None:
         ):
             return "DEP-005"
     if _is_module(importer, "souwen.providers"):
-        if _is_module(imported, "souwen.delivery"):
-            return "DEP-002"
         if _is_module(imported, "souwen.providers.runtime_clients"):
             return None
         if _is_module(importer, "souwen.providers.runtime_clients") and _is_module(
@@ -267,9 +265,9 @@ def _rule_for(edge: ImportEdge) -> str | None:
             "souwen.__version__",
         }:
             return None
+        if _is_module(importer, "souwen.common_runtime.egress") and imported == "souwen.config":
+            return None
         return "DEP-004"
-    if _is_module(importer, "souwen.delivery.api") and _is_module(imported, "souwen.providers"):
-        return "DEP-006"
     if _is_module(importer, "contracts") and _is_module(imported, "souwen"):
         return "DEP-009"
     return None
