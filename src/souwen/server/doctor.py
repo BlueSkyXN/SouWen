@@ -202,6 +202,14 @@ def run_live_census(levels: list[str], *, only: set[str] | None = None) -> list[
                 await runtime.close()
             except Exception:
                 pass
+            try:
+                from souwen.common_runtime.provider_support.browser_fetch import (
+                    close_shared_pools,
+                )
+
+                await close_shared_pools()
+            except Exception:
+                pass
             return verdicts
 
         verdicts = asyncio.run(run_all())

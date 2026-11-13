@@ -94,6 +94,13 @@ async def lifespan(app: FastAPI):
             logger.warning("关闭 session_cache 失败", exc_info=True)
 
         try:
+            from souwen.common_runtime.provider_support.browser_fetch import close_shared_pools
+
+            await close_shared_pools()
+        except Exception:
+            logger.warning("关闭浏览器池失败", exc_info=True)
+
+        try:
             owner = warp_mgr._state.owner if warp_mgr is not None else "unknown"
         except Exception:
             owner = "unknown"

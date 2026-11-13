@@ -43,6 +43,32 @@ class BrowserAcquisitionError(Exception):
         super().__init__(code)
 
 
+# 每个请求各建 pool 会各自启动一个 Chromium；按代理值共享 pool 实例。
+_shared_pools: dict[str | None, Any] = {}
+
+
+def _shared_pool(proxy: str | None) -> Any:
+    from souwen.common_runtime.provider_support.browser_pool import PlaywrightBrowserPool
+
+    pool = _shared_pools.get(proxy)
+    if pool is None:
+        pool = PlaywrightBrowserPool()
+        _shared_pools[proxy] = pool
+    return pool
+
+
+async def close_shared_pools() -> None:
+    """Close cached pools at process shutdown."""
+
+    pools = list(_shared_pools.values())
+    _shared_pools.clear()
+    for pool in pools:
+        try:
+            await pool.close()
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def _validated_page(
     url: str, *, timeout_seconds: float, proxy: str | None
@@ -51,9 +77,7 @@ async def _validated_page(
     if resolved is None:
         raise BrowserAcquisitionError("policy_blocked")
 
-    from souwen.common_runtime.provider_support.browser_pool import PlaywrightBrowserPool
-
-    pool = PlaywrightBrowserPool()
+    pool = _shared_pool(proxy)
     policy_blocked = False
 
     async def enforce_policy(route, browser_request) -> None:
