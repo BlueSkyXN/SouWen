@@ -1,199 +1,138 @@
-# SouWen 搜文
+# SouWen
 
-中文 | **English**
+中文 | **[English](README.en.md)**
 
-> A target-only Search, LLM Search, and Fetch API for AI Agents and automation scripts.
+> Free search & fetch for AI agents: two actions (`search`, `fetch`), two entries
+> (MCP + HTTP API), and one core skill — making free sources actually work behind
+> WARP, proxies, and a headless browser.
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc6-orange)](CHANGELOG.md)
-
-> The current source candidate is **[Souwen v2rc6](CHANGELOG.md)**
-> (Python/runtime `2.0.0rc6`). Only the repository owner may create the `v2.0.0rc6` tag,
-> 12 Release assets, provenance, and HFS promotion by running the central release workflow on
-> exact `main`. This paragraph does not predeclare publication success; the final state comes
-> from tag, Release, workflow, and runtime readback. This is not the `2.0.0` GA and is not
-> published on PyPI. The previous immutable-by-policy baseline is
-> [`v2.0.0rc4`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4), sourced from
-> `51f092841696b1e6f898e7c6bea40e535f639f5c`.
+[![Version](https://img.shields.io/badge/version-3.0.0a1-orange)](CHANGELOG.md)
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
-> **⚠️ Disclaimer: This project is for Python learning and technical research only.** It covers API aggregation, full-stack development (FastAPI + React), web scraping (TLS fingerprinting / anti-bot bypass), and async programming. Do not use it in ways that violate laws or third-party terms of service.
+> **Disclaimer: for learning and technical research only.** Do not use it in violation of
+> applicable laws or third-party terms of service. All data comes from the public endpoints
+> of each source; SouWen never proxies credential-gated content.
 
 ---
 
-## 📖 Table of Contents
+## Overview
 
-- [Introduction](#-introduction)
-- [Live Preview](#-live-preview)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Configuration](#️-configuration)
-- [Architecture](#-architecture)
-- [Deployment](#-deployment)
-- [Documentation](#-documentation)
-- [Contributing](#-contributing)
-- [License](#-license)
+SouWen does exactly two things:
 
----
+- **`search(query, domain, limit)`** — concurrently queries several free sources in one
+  domain, merges and dedupes by normalized URL, and falls through to the next batch of
+  sources on failure. Domains: `web`, `news`, `paper`, `patent`, `book`, `code`,
+  `community`, `wiki`, `images`, `videos`.
+- **`fetch(url, max_chars, start)`** — retrieves a page's main content (Markdown); long
+  pages continue via `start`. A site handler (arxiv paper pages) runs first, then generic
+  fetch, with wayback as the unreachable-page fallback.
 
-## 🎯 Introduction
-
-SouWen exposes only Search, LLM Search, and Fetch as public data operations. Provider facts come
-from the `ProviderManifest` catalog, `ManifestRegistry`, and `ProviderManager`; `/api/v1/providers`
-is their safe runtime projection.
-
-### Features
+Underneath sits an egress ladder: `direct → impersonate (curl_cffi fingerprints) →
+proxy (WARP / user proxy) → browser (Playwright Chromium)`. The most common death of a
+free source is a datacenter-IP block — the ladder escalates within a single request and
+the process remembers the last working level per host. Missing Chromium or a proxy simply
+skips that level.
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
 - **36 built-in Provider v2 packages** and **36 capability adapters**.
   - Search: **32** packages · LLM Search: **0** · Fetch: **4**.
 <!-- END AUTO: SOURCE METRICS -->
-- **Frozen OpenAPI and generated SDKs**: the Python root exposes generated sync/async SDK clients; Panel uses the generated TypeScript SDK
-- **Canonical DTOs** for Search, LLM Search, Fetch, Provider Catalog, and probes
-- **Read-only admin boundary**: config, doctor, and ping only
 
-## 🌐 Live Preview
+## MCP
 
-- Calm Precision Panel: <https://blueskyxn-souwen.hf.space/panel#/>
-- Swagger: <https://blueskyxn-souwen.hf.space/docs>
-- Complete routes, roles, and acceptance steps: [HFS live preview guide](docs/live-preview.md)
+stdio (Claude Code, Codex, and other hosts):
 
-The Space repository remains private. The current App domain exposes the Panel/docs/probe
-surface for preview, while Search, LLM Search, Fetch, Providers, and Admin APIs still require a
-SouWen application credential. HFS is a mutable current-main deployment and must not be treated
-as a tag-exact GitHub Release based on the version string alone.
-
-## 📦 Installation
-
-```bash
-# Install the current main source line
-git clone https://github.com/BlueSkyXN/SouWen.git
-cd SouWen
-pip install -e .
-
-# Server runtime
-pip install -e ".[server,tls,web,robots,scraper]"
+```json
+{
+  "mcpServers": {
+    "souwen": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen", "souwen", "mcp"]
+    }
+  }
+}
 ```
 
-## 🚀 Quick Start
+The MCP server exposes exactly two tools: `search(query, domain="web", limit=8)` and
+`fetch(url, max_chars=20000, start=0)`. Source status travels as the `souwen://sources`
+resource.
 
-### Python REST SDK
+## HTTP API
+
+```bash
+pip install "souwen[server,mcp]"   # or docker (below)
+souwen serve --port 8000
+```
+
+| Route | Description |
+|---|---|
+| `POST /search` | `{"query": "...", "domain": "web", "limit": 8}` → `{"results": [...], "sources": [...], "partial": bool}` |
+| `POST /fetch` | `{"url": "...", "max_chars": 20000, "start": 0}` → `{"title", "url", "content", "total_chars", "start", "next_start", "egress"}` |
+| `GET /sources` | per-source domain and availability |
+| `GET /healthz` | probe |
+| `/mcp` | MCP streamable HTTP |
+
+Auth: set `user_password` (env `SOUWEN_USER_PASSWORD`) and send
+`Authorization: Bearer <password>` or `X-SouWen-Token`; unset keeps the endpoint open
+(existing user-credential semantics, never loosened).
+
+## Python
 
 ```python
-from souwen import SouWenClient
-from souwen.delivery.client_sdk import SearchRequest
+from souwen import search, fetch
 
-with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
-    page = client.search(SearchRequest(query="quantum computing", domains=["paper"]))
-    for item in page.items:
-        print(item.title, item.url)
+results = await search("attention is all you need", domain="paper", limit=8)
+page = await fetch("https://arxiv.org/abs/1706.03762", max_chars=20000)
 ```
 
-`AsyncSouWenClient` provides the async surface. Before the first business request, both clients
-verify API major 2 through `/healthz`. See the
-
-### API Server
+## Install & deploy
 
 ```bash
-SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
-  uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
+pip install "souwen[tls,web]"          # library
+pip install "souwen[mcp]"              # MCP server
+pip install "souwen[server,tls,web,robots,scraper]"  # HTTP service (incl. /mcp)
+pip install "souwen[browser]" && playwright install chromium  # browser egress
+
+docker build -t souwen . && docker run -p 49265:49265 -e SOUWEN_USER_PASSWORD=... souwen
 ```
 
-Main endpoints:
+## Configuration
 
-```bash
-curl "http://localhost:8000/api/v1/search" \
-  -H "Authorization: Bearer userpass" \
-  -H "X-SouWen-API-Major: 2" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"transformer","domains":["paper"]}'
-curl "http://localhost:8000/api/v1/providers" \
-  -H "Authorization: Bearer userpass" \
-  -H "X-SouWen-API-Major: 2"
-```
+Zero-key sources run with no configuration. `souwen.example.yaml` is the full template:
+search candidate order (`search_defaults`, refreshed from the census), WARP modes
+(wireproxy / usque / external), and per-source overrides
+(`sources.<id>.{enabled, proxy, timeout, api_key, ...}`).
+Needs-free-key sources (patentsview, epo_ops, uspto_odp, youtube) ship disabled and
+activate once their key is configured.
 
-`POST /api/v1/fetch` is a target Data API operation and uses a user credential. Admin retains only
-read-only `GET /api/v1/admin/config`, `/doctor`, and `/ping`; there is no rollout switch, `/sources`,
-citation/detail/archive-save, recursive crawl, browser-fetch product entry, or legacy enriched-search endpoint.
+## Sources & census
 
-Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the single Calm Precision management surface. `/` redirects to `/docs` with the default configuration.
+36 surviving sources (32 search + 4 fetch) are probed weekly by `census.yml` in the
+authoritative environment (image build, WARP on, zero keys): sources / domains / fetch
+modes with PASS/WARN/FAIL verdicts; the reports feed
+[docs/sources.md](docs/sources.md). Sources that fail their retests are deleted — this
+repository does not keep sources it has not verified.
 
-## ⚙️ Configuration
-
-Config priority: env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > defaults.
-
-Create project configuration from `souwen.example.yaml`. Copy it to `~/.config/souwen/config.yaml` if you want a user-level config.
-
-## 🏗 Architecture
-
-Three-layer separation: **Presentation (Server / Panel) → generated SDK and module APIs → Provider manifest catalog, registry, manager, and runtime clients**.
-
-See [docs/architecture.md](docs/architecture.md) for details.
+## Architecture
 
 ```
 src/souwen/
-├── delivery/          Frozen OpenAPI, generated Python SDK, and HTTP adapters
-├── platform/          Provider SPI, manifest registry, specs, and manager
-├── providers/         Provider manifests, adapters, and private runtime clients
-├── modules/           Search, LLM Search, and Fetch application services
-├── common_runtime/    Shared transport, security, resilience, and observability
-└── server/            FastAPI host and embedded Panel boundary
+  agent.py          facade: search / fetch / sources (shared by MCP, HTTP, Python)
+  cli.py            souwen mcp | serve | doctor
+  modules/search    domain selection, concurrency, dedupe, fallback, compact projection
+  modules/fetch     site handlers → generic fetch → extractor chain → paginated cache
+  common_runtime/   transport, egress ladder, SSRF, rate limiting, WARP support
+  providers/        one package per source (declaration + spec + adapter) + private clients
+  server/           FastAPI routes, auth, limiter, MCP server, doctor
 ```
 
-## 🚢 Deployment
+SSRF validation (`common_runtime/security/fetch_target.py`) is non-negotiable: HTTP and
+browser traffic (every redirect hop) is validated before connecting, and browser traffic
+is pinned to the validated IP through a loopback proxy.
 
-**Docker** (recommended):
+## License
 
-```bash
-docker build -t souwen .
-docker run -p 8000:49265 \
-  -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
-  -e SOUWEN_USER_PASSWORD=your-user-password \
-  -v "$PWD/souwen.yaml:/app/souwen.yaml:ro" \
-  -v souwen-data:/app/data \
-  souwen
-```
-
-`/app/souwen.yaml` is the application config; `/app/data` is only for WARP/runtime persistence.
-
-**HuggingFace Spaces**: see `cloud/hfs/` and [docs/hf-space-cd.md](docs/hf-space-cd.md).
-source lane, Space ID, workflow ownership, and current Space-setting names. It stores
-no credential values and does not authorize a generic sync tool to change remote settings;
-the current reference `hf_space_sync.py` rejects it before reading `.env` or using the network.
-It adopts the current HFS v2.1 draft schema (the published baseline remains v2.0) and registers
-the gitignored, mode-`0600` `local/credentials/souwen-hfs.yaml` as the raw YAML fact source from
-which `SOUWEN_CONFIG_B64` is derived.
-**ModelScope**: see `cloud/modelscope/`.
-
-**WARP proxy embedding** (optional, bypass network restrictions): see the WARP section in `docs/anti-scraping.md`.
-
-## 📚 Documentation
-
-- [docs/README.md](docs/README.md) — Technical documentation index and reading guide
-- [docs/getting-started.md](docs/getting-started.md) — Getting started
-- [docs/concepts.md](docs/concepts.md) — Core concepts
-- [docs/python-api.md](docs/python-api.md) — Python API
-- [docs/source-catalog.md](docs/source-catalog.md) — Provider Catalog contract
-- [docs/architecture.md](docs/architecture.md) — Architecture overview
-- [docs/data-sources.md](docs/data-sources.md) — Full Provider guide and list (auto-generated from manifests)
-- [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
-- [docs/api-reference.md](docs/api-reference.md) — REST API reference
-- [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
-- [docs/live-preview.md](docs/live-preview.md) — HFS Panel/Swagger, role matrix, and feature acceptance
-- [docs/deployment.md](docs/deployment.md) — Deployment
-- [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
-- [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
-- [docs/contributing.md](docs/contributing.md) — Developer guide
-- [CHANGELOG.md](CHANGELOG.md) — Changelog
-
-## 🤝 Contributing
-
-- Add a Provider: see [docs/adding-a-source.md](docs/adding-a-source.md) (add manifest/spec/adapter and conformance tests)
-- Code style: `ruff format && ruff check`
-- Tests: `pytest tests/`
-
-## 📄 License
-
-[GPLv3](LICENSE) · For learning and research purposes only
+[GPLv3](LICENSE)

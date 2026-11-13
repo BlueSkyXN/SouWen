@@ -2,6 +2,7 @@
 
 ## 导航
 
+- [Souwen v3.0.0a1 agent-first alpha](#v300a1--agent-first-重定义2026-11-14-alpha)
 - [Souwen v2rc6 source candidate](#v200rc6--release-candidate2026-08-30-source-candidate)
 - [Souwen v2rc5 source candidate](#v200rc5--release-candidate2026-07-30-source-candidate)
 - [Souwen v2rc4 release candidate](#v200rc4--release-candidate2026-07-29)
@@ -11,6 +12,44 @@
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+
+## v3.0.0a1 — Agent-first 重定义（2026-11-14 alpha）
+
+### 定位变更
+
+- SouWen 重新定义为**给 Agent 用的免费搜索与抓取工具**：只有 `search` 与 `fetch`
+  两个动作，入口为 MCP（stdio 与 `/mcp` streamable HTTP）和精简 HTTP API
+  （`POST /search`、`POST /fetch`、`GET /sources`、`GET /healthz`）。包根导出
+  `from souwen import search, fetch`，CLI 提供 `souwen mcp | serve | doctor`（`doctor --live`
+  支持按出口级别体检）。`2.0.0rc6` 的冻结 OpenAPI、生成 SDK、React Panel、Admin/guest
+  角色与 LLM Search 全部移除；`/api/v1/*` 与 `/readiness` 路由不复存在。
+- 搜索领域收敛为十个：web、news、paper、patent、book、code、community、wiki、images、
+  videos（research_output 并入 paper，developer→code，cn_tech+social→community，
+  knowledge→wiki）。
+- 不点名源的搜索按领域候选列表并发取源（默认前 3 个），单源 10s 超时、整次 25s 预算、
+  连续 3 次失败降级 10 分钟；候选顺序来自最近一次权威体检并随体检更新。
+- 抓取提供 `max_chars`/`start` 分页与 10 分钟进程内缓存；默认链为站点处理器
+  （arxiv 论文页）→ 通用抓取 → wayback 兜底（jina_reader 需 `jina_fallback_enabled`）；
+  提取链 trafilatura → readability → newspaper。
+
+### 出口阶梯
+
+- 新增 egress 模块：direct → impersonate（curl_cffi 指纹）→ proxy（WARP/用户代理）→
+  browser（Playwright Chromium）四级；源按 `min/max` 边界参与，进程内记住每主机
+  最近可用的级别，失败在单请求内最多爬两级。未装 Chromium 或未配置代理时对应级别
+  自动跳过，不报启动错误。
+- Browser Worker 子进程（HMAC 回环协议、supervisor）并入主进程；浏览器流量经每请求
+  的 PinnedLoopbackProxy 连接已校验 IP，连接级 SSRF 约束与 worker 时代等价。
+- WARP 裁剪为 wireproxy / usque / external 三模式（kernel、warp-cli 需特权，删除）。
+- 体检（`census.yml`）三轮驱动删源：20 个待浏览器/修一轮仍败的源删除，
+  存活 36 源（32 搜索 + 4 抓取）；`souwen doctor --live` 输出每源每级结果与实际生效级别。
+
+### 已知差距（截至本条目）
+
+- 权威体检（run 43469882784，WARP 未注册、双腿直连）：web 9/10、paper/community/wiki
+  10/10 达标；news 0/10、code 6/10、抓取 15/30 未达 90%/80% 目标，两轮改进记录见
+  仓库 PLAN 进度表；images 领域已无零 Key 源。
+- `image.yml` 只写未运行；线上 HFS 仍为 rc6，部署前需清理已删除配置的 Secrets。
 
 ## v2.0.0rc6 — Release Candidate（2026-08-30 source candidate）
 

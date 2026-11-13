@@ -129,8 +129,6 @@ source SHA、config revision、Panel、OpenAPI、Search/LLM Search/Fetch live �
    deterministic tests。
 3. 运行 Provider、architecture、OpenAPI/SDK、生成文档与 residue gates。
 
-完整步骤见 [添加 Provider](adding-a-source.md)。
-
 ## 7. 验证护栏
 
 - `pytest tests/ -q --tb=short`

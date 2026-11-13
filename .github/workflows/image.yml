@@ -1,0 +1,68 @@
+# 镜像发布（SPEC 8）：workflow_dispatch 手动触发，构建根镜像并同步到 HFS。
+# 需要 HF 的 secret（HFS_TOKEN / HFS_SPACE），会改动线上 Space——首次运行须业主监督。
+# 本文件只写不跑（执行者未验证；按 PLAN 第 8 节交付约定列为未验证项）。
+
+name: image
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "本次发布说明（可选）"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_TAG: souwen-release:local
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build root image
+        run: |
+          docker build \
+            --build-arg SOUWEN_SOURCE_SHA="$(git rev-parse HEAD)" \
+            -t "$IMAGE_TAG" .
+
+      - name: Smoke /healthz
+        run: |
+          docker run -d --name souwen-release -p 127.0.0.1:49365:49265 \
+            -e PORT=49265 -e WARP_ENABLED=0 "$IMAGE_TAG"
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:49365/healthz > /dev/null 2>&1; then
+              echo "healthz OK"; docker rm -f souwen-release; exit 0
+            fi
+            sleep 2
+          done
+          docker logs souwen-release || true
+          docker rm -f souwen-release || true
+          exit 1
+
+      - name: Save image
+        run: docker save "$IMAGE_TAG" | gzip > /tmp/souwen-image.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-image
+          path: /tmp/souwen-image.tar.gz
+          retention-days: 7
+
+      # HFS 同步：需要业主配置 secret 后启用。
+      # 登录 Registry 写入 Space 的镜像由 Space 的 Dockerfile 拉取源码构建，
+      # 因此这里的“同步”以触发 Space 重启 + 源码 SHA 注入为准。
+      - name: Trigger HFS Space restart
+        if: ${{ vars.HFS_SPACE != '' }}
+        env:
+          HFS_TOKEN: ${{ secrets.HFS_TOKEN }}
+          HFS_SPACE: ${{ vars.HFS_SPACE }}
+        run: |
+          curl -fsS -X POST \
+            "https://huggingface.co/api/spaces/${HFS_SPACE}/restart" \
+            -H "Authorization: Bearer ${HFS_TOKEN}"

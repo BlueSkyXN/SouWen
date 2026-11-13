@@ -2,195 +2,151 @@
 
 **[English](README.en.md)** | 中文
 
-> 面向 AI Agent 和自动化脚本的 target-only Search、LLM Search 与 Fetch API。
+> 给 AI Agent 用的免费搜索与抓取工具：`search` 与 `fetch` 两个动作，
+> MCP 与 HTTP API 两个入口，一项看家本领——让免费源在 WARP、代理和无头浏览器下确实能用。
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc6-orange)](CHANGELOG.md)
-
-> 当前源码候选为 **[Souwen v2rc6](CHANGELOG.md)**
-> （Python/runtime `2.0.0rc6`）。`v2.0.0rc6` tag、12 项 Release 资产、provenance 与 HFS
-> promotion 只能由 repository-owner 对 exact `main` 运行 central release workflow 创建；本段
-> 不预先声明发布成功，最终状态以 tag、Release、workflow 与 runtime 回读为准。这不是
-> `2.0.0` GA，也不发布到 PyPI。前一 immutable-by-policy baseline 是
-> [`v2.0.0rc4`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4)，source 为
-> `51f092841696b1e6f898e7c6bea40e535f639f5c`。
+[![Version](https://img.shields.io/badge/version-3.0.0a1-orange)](CHANGELOG.md)
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
-> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。** 涵盖 API 聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 反爬绕过）与异步编程等方向。请勿用于违反法律法规或第三方服务条款的用途。
+> **声明：本项目仅供学习与技术研究使用。** 请勿用于违反法律法规或第三方服务条款的用途。
+> 所有数据均来自各源的公开接口，SouWen 不代理任何需要凭据的内容。
 
 ---
 
-## 📖 目录
+## 目录
 
-- [简介](#-简介)
-- [在线预览](#-在线预览)
-- [安装](#-安装)
-- [快速开始](#-快速开始)
-- [配置](#️-配置)
-- [架构](#-架构)
-- [部署](#-部署)
-- [文档](#-文档)
-- [贡献](#-贡献)
-- [License](#-license)
+- [简介](#简介)
+- [接入 MCP](#接入-mcp)
+- [HTTP API](#http-api)
+- [Python](#python)
+- [安装与部署](#安装与部署)
+- [配置](#配置)
+- [源与体检](#源与体检)
+- [架构](#架构)
+- [License](#license)
 
 ---
 
-## 🎯 简介
+## 简介
 
-SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的 target-only 数据 API。
-公开业务能力只有 **Search、LLM Search 和 Fetch**。Provider 的事实来源是
-`ProviderManifest` catalog、`ManifestRegistry` 与 `ProviderManager`；`/api/v1/providers`
-是它们的安全投影，不是旧 Source Catalog 的兼容别名。
+SouWen 只做两件事：
 
-### 特性
+- **`search(query, domain, limit)`** —— 在一个领域里并发调用多个免费源，按规范化 URL
+  去重合并，失败自动换下一批源。领域：`web`、`news`、`paper`、`patent`、`book`、
+  `code`、`community`、`wiki`、`images`、`videos`。
+- **`fetch(url, max_chars, start)`** —— 抓一个 URL 的正文（Markdown），长页用 `start`
+  续读；站点处理器（arxiv 论文页）优先，之后是通用抓取，页面不可达时走 wayback 兜底。
+
+背后是一套出口阶梯：`direct → impersonate（curl_cffi 指纹）→ proxy（WARP / 用户代理）→
+browser（Playwright Chromium）`。免费源最常见的死法是被数据中心 IP 拦截——阶梯在单次
+请求内自动升级出口，进程内记住每个主机最近可用的级别。未装 Chromium 或未配置代理时，
+对应级别自动跳过。
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
 - **36 个内置 Provider v2 package**，共 **36 个 capability adapter**。
   - Search：**32** 个 package · LLM Search：**0** 个 · Fetch：**4** 个。
 <!-- END AUTO: SOURCE METRICS -->
-- **Frozen OpenAPI + generated SDK**：Python root 只暴露 generated sync/async SDK；Panel 使用同一 OpenAPI 生成的 TypeScript SDK
-- **统一 canonical DTO**：Search、LLM Search、Fetch、Provider Catalog 和 probes 使用明确的 Pydantic v2 contract
-- **安全边界**：target Data API 使用 user credential；Admin 仅提供 read-only config、doctor 与 ping
 
-## 🌐 在线预览
+## 接入 MCP
 
-- Calm Precision Panel：<https://blueskyxn-souwen.hf.space/panel#/>
-- Swagger：<https://blueskyxn-souwen.hf.space/docs>
-- 完整 route、角色与逐项验收：[HFS 在线预览与功能验收](docs/live-preview.md)
+stdio 方式（Claude Code、Codex 等宿主）：
 
-Space 仓库保持 private；当前 App domain 的 Panel/docs/probes surface 可直接预览，Search、
-LLM Search、Fetch、Providers 和 Admin API 仍要求 SouWen application credential。HFS 是
-可变 current-main deployment，不能仅凭版本号把它当成 tag-exact GitHub Release。
-
-## 📦 安装
-
-```bash
-# 从当前 main 源码线安装核心库
-git clone https://github.com/BlueSkyXN/SouWen.git
-cd SouWen
-pip install -e .
-
-# 默认安装提供 generated Python SDK；运行 Server 再安装 runtime extra
-pip install -e ".[server,tls,web,robots,scraper]"
+```json
+{
+  "mcpServers": {
+    "souwen": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen", "souwen", "mcp"]
+    }
+  }
+}
 ```
 
-## 🚀 快速开始
+MCP 恰好暴露两个工具：
 
-### Python REST SDK
+- `search(query, domain="web", limit=8)` —— 返回编号结果（标题、URL、摘要；论文带年份作者）。
+- `fetch(url, max_chars=20000, start=0)` —— 返回元信息行 + 正文；被截断时末行提示下一次
+  调用应传的 `start`。
+
+源清单与健康状态走 `souwen://sources` 资源，不占工具位。
+
+## HTTP API
+
+```bash
+pip install "souwen[server,mcp]"   # 或 docker（见下）
+souwen serve --port 8000
+```
+
+| 路由 | 说明 |
+|---|---|
+| `POST /search` | `{"query": "...", "domain": "web", "limit": 8}` → `{"results": [...], "sources": [...], "partial": bool}` |
+| `POST /fetch` | `{"url": "...", "max_chars": 20000, "start": 0}` → `{"title", "url", "content", "total_chars", "start", "next_start", "egress"}` |
+| `GET /sources` | 每个源的领域与可用性 |
+| `GET /healthz` | 探针 |
+| `/mcp` | MCP streamable HTTP |
+
+鉴权：配置 `user_password`（环境变量 `SOUWEN_USER_PASSWORD`）后，所有请求需
+`Authorization: Bearer <password>` 或 `X-SouWen-Token`；不配置则开放（沿用既有 user
+凭据校验行为，不放宽）。
+
+## Python
 
 ```python
-from souwen import SouWenClient
-from souwen.delivery.client_sdk import SearchRequest
+from souwen import search, fetch
 
-with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
-    page = client.search(SearchRequest(query="quantum computing", domains=["paper"]))
-    for item in page.items:
-        print(item.title, item.url)
+results = await search("attention is all you need", domain="paper", limit=8)
+page = await fetch("https://arxiv.org/abs/1706.03762", max_chars=20000)
 ```
 
-SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2。
-
-### API Server
+## 安装与部署
 
 ```bash
-SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
-  uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
+# 库（搜索 + 抓取）
+pip install "souwen[tls,web]"
+# MCP server
+pip install "souwen[mcp]"
+# HTTP 服务（含 /mcp）
+pip install "souwen[server,tls,web,robots,scraper]"
+# 无头浏览器级出口
+pip install "souwen[browser]" && playwright install chromium
+
+# Docker（内置 WARP 组件与 Chromium）
+docker build -t souwen . && docker run -p 49265:49265 -e SOUWEN_USER_PASSWORD=... souwen
 ```
 
-主要端点：
+## 配置
 
-```bash
-curl "http://localhost:8000/api/v1/search" \
-  -H "Authorization: Bearer userpass" \
-  -H "X-SouWen-API-Major: 2" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"transformer","domains":["paper"]}'
-curl "http://localhost:8000/api/v1/providers" \
-  -H "Authorization: Bearer userpass" \
-  -H "X-SouWen-API-Major: 2"
-```
+最小配置即可运行（全部零 Key 源）。`souwen.example.yaml` 是完整模板：
+搜索候选顺序（`search_defaults`，随体检更新）、WARP 模式（wireproxy / usque / external）、
+按源的频道覆盖（`sources.<id>.{enabled, proxy, timeout, api_key, ...}`）。
+需免费 Key 的源（patentsview、epo_ops、uspto_odp、youtube）默认关闭，配置对应 key 才启用。
 
-`POST /api/v1/fetch` 与 Search/LLM Search 同属 target Data API，使用 user credential。
-管理面只保留 `GET /api/v1/admin/config`、`GET /api/v1/admin/doctor` 和
-`GET /api/v1/admin/ping`。没有 rollout switch、`/sources`、citation/detail/archive-save、
-递归抓取、浏览器抓取产品入口或旧 enriched-search public endpoint。
+## 源与体检
 
-访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入单一 Calm Precision 管理面。`/` 在默认配置下重定向到 `/docs`。
+36 个存活源（32 搜索 + 4 抓取）每周由 `census.yml` 在权威环境（构建镜像、WARP 开、
+零 Key）自动体检：sources / domains / fetch 三种模式，PASS/WARN/FAIL 判定，报告即
+[docs/sources.md](docs/sources.md) 的数据来源。体检判死的源按规则删除——本仓库不保留
+没验证过能用的源。
 
-## ⚙️ 配置
-
-配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
-
-从 `souwen.example.yaml` 创建项目配置；需要全局配置时，可将其复制到 `~/.config/souwen/config.yaml`。
-
-## 🏗 架构
-
-三层分离：**展示层（Server / Panel）→ generated SDK / Module APIs → ProviderManifest catalog、ManifestRegistry、ProviderManager 和 runtime clients**。
-
-详见 [docs/architecture.md](docs/architecture.md)。
+## 架构
 
 ```
 src/souwen/
-├── delivery/          frozen OpenAPI、generated Python SDK 与 HTTP adapters
-├── platform/          ProviderManifest / ManifestRegistry / ProviderManager
-├── providers/         provider specs、adapters 与 runtime clients
-├── modules/           Search、LLM Search 与 Fetch application services
-├── common_runtime/    shared transport、security、resilience 与 observability
-└── server/            FastAPI 应用
+  agent.py          门面：search / fetch / sources（MCP、HTTP、Python 共用）
+  cli.py            souwen mcp | serve | doctor
+  modules/search    领域选源、并发、合并去重、回退、紧凑投影
+  modules/fetch     站点处理器 → 通用抓取 → 提取链 → 分页缓存
+  common_runtime/   传输、egress 阶梯、SSRF、限流、WARP 支持
+  providers/        一个源一个包（声明 + spec + adapter）与私有 client
+  server/           FastAPI 路由、鉴权、限流、MCP server、doctor
 ```
 
-## 🚢 部署
+SSRF 校验（`common_runtime/security/fetch_target.py`）不可关闭：HTTP、浏览器（含每跳
+重定向）一律先校验后连接，浏览器流量经回环代理 pin 到已校验 IP。
 
-**Docker**（推荐）：
+## License
 
-```bash
-docker build -t souwen .
-docker run -p 8000:49265 \
-  -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
-  -e SOUWEN_USER_PASSWORD=your-user-password \
-  -v "$PWD/souwen.yaml:/app/souwen.yaml:ro" \
-  -v souwen-data:/app/data \
-  souwen
-```
-
-`/app/souwen.yaml` 是应用配置；`/app/data` 只用于 WARP/runtime persistence。
-
-**HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
-workflow ownership 和当前 Space setting 名称，不保存任何真实凭据值，也不授权通用同步工具
-修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。它采用当前
-HFS v2.1 draft schema（正式公开基线仍为 v2.0），并登记 gitignored、`0600` 的
-`local/credentials/souwen-hfs.yaml` 作为 `SOUWEN_CONFIG_B64` 的原始 YAML 事实源。
-**ModelScope**：参见 `cloud/modelscope/`。
-
-部署环境可按自身网络策略配置代理；公开 API 不提供 WARP 管理或运行时安装入口。
-
-## 📚 文档
-
-- [docs/README.md](docs/README.md) — 技术文档入口与阅读导航
-- [docs/getting-started.md](docs/getting-started.md) — 快速开始
-- [docs/concepts.md](docs/concepts.md) — 核心概念
-- [docs/python-api.md](docs/python-api.md) — Python API
-- [docs/source-catalog.md](docs/source-catalog.md) — Provider Catalog 契约
-- [docs/architecture.md](docs/architecture.md) — 架构概览
-- [docs/data-sources.md](docs/data-sources.md) — 完整 Provider 指南与清单（由 manifest catalog 自动生成）
-- [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
-- [docs/api-reference.md](docs/api-reference.md) — REST API 参考
-- [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
-- [docs/live-preview.md](docs/live-preview.md) — HFS 在线 Panel/Swagger、角色矩阵与功能验收
-- [docs/deployment.md](docs/deployment.md) — 部署
-- [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
-- [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
-- [docs/contributing.md](docs/contributing.md) — 开发者指南
-- [CHANGELOG.md](CHANGELOG.md) — 版本变更
-
-## 🤝 贡献
-
-- 新增 Provider：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（新增 manifest/spec/adapter 与 conformance tests）
-- 代码风格：`ruff format && ruff check`
-- 测试：`pytest tests/`
-
-## 📄 License
-
-[GPLv3](LICENSE) · 仅供学习研究用途
+[GPLv3](LICENSE)
