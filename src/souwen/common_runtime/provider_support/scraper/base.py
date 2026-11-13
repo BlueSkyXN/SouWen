@@ -80,6 +80,8 @@ logger = logging.getLogger("souwen.common_runtime.provider_support.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 # 单次 _fetch 内最多向上爬两级；跨请求的持续升级交给按主机记忆。
 _EGRESS_MAX_CLIMBS = 2
+# 非顶层级别的单次尝试限时：保证失败快速暴露、阶梯来得及升级
+_EGRESS_PROBE_TIMEOUT_SECONDS = 4.0
 
 # 维基媒体旗下站点的机器人政策要求自动化 UA 可识别且带联系方式。
 _WIKIMEDIA_HOST_SUFFIXES = (
@@ -606,9 +608,16 @@ class BaseScraper:
         for attempt in range(1, budget + 1):
             await self._polite_delay()
             try:
-                resp = await self._do_request(
+                attempt_coro = self._do_request(
                     method, url, params, request_headers, data=data, egress_level=egress_level
                 )
+                if budget == 1 and int(egress_level) < int(self._egress_ceiling_for_probe()):
+                    # 非顶层尝试限时：tarpit 不能耗尽上层请求预算（阶梯要能爬）
+                    resp = await asyncio.wait_for(
+                        attempt_coro, timeout=_EGRESS_PROBE_TIMEOUT_SECONDS
+                    )
+                else:
+                    resp = await attempt_coro
                 if resp.status_code == 429:
                     self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
                     if budget == 1:
@@ -646,6 +655,12 @@ class BaseScraper:
                 f"重试 {self.max_retries} 次后仍失败: {display_url}"
             ) from last_error
         raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {display_url}")
+
+    def _egress_ceiling_for_probe(self) -> int:
+        bounds = getattr(self, "_egress_bounds", None)
+        if bounds is None:
+            return 0
+        return int(bounds.max_level)
 
     def _tag_egress(self, resp: Any, egress_level) -> None:
         label = getattr(egress_level, "label", str(egress_level))
@@ -765,7 +780,7 @@ class BaseScraper:
                 if level is EgressLevel.BROWSER:
                     resp = await self._browser_request(method, url, params, headers or {})
                 else:
-                    resp = await self._safe_redirects_chain(
+                    chain = self._safe_redirects_chain(
                         url,
                         method,
                         params,
@@ -774,6 +789,13 @@ class BaseScraper:
                         max_redirects,
                         proxy_override=decision.proxy if level is EgressLevel.PROXY else None,
                     )
+                    if int(level) < int(bounds.max_level):
+                        # 非顶层整链限时，避免 tarpit 耗尽上层预算
+                        resp = await asyncio.wait_for(
+                            chain, timeout=_EGRESS_PROBE_TIMEOUT_SECONDS + 2.0
+                        )
+                    else:
+                        resp = await chain
             except (SourceUnavailableError, RateLimitError):
                 self._egress_planner.report_failure(urlsplit(url).hostname or "", level)
                 if climbs < _EGRESS_MAX_CLIMBS and int(level) < int(bounds.max_level):
