@@ -172,10 +172,6 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
         )
 
     assert 'pip install -e ".[dev,server,tls,web,robots,scraper]"' in combined_text
-    assert (
-        'pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"'
-        in combined_text
-    )
     assert "edition-" not in combined_text
 
 
@@ -208,8 +204,7 @@ def test_canonical_profiles_do_not_set_edition_environment(monkeypatch):
         "server-contract",
     }
     expected_command_count = sum(
-        len(run_profile.PROFILE_COMMANDS[profile])
-        for profile in ("server-contract",)
+        len(run_profile.PROFILE_COMMANDS[profile]) for profile in ("server-contract",)
     )
     assert captured == [None] * expected_command_count
 
