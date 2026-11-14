@@ -87,10 +87,61 @@ class _FakeProviderItem:
         self.availability = "available"
 
 
+class _FakeFetchService:
+    def __init__(self, outcome: str = "ok") -> None:
+        self._outcome = outcome
+        self.targets: list[str] = []
+
+    async def fetch(self, request, context, execution):
+        from souwen.platform.provider_spi import (
+            ContentMetadata,
+            ErrorDetail,
+            FetchBatch,
+            FetchMeta,
+            FetchResult,
+            Provenance,
+        )
+
+        self.targets.append(str(request.targets[0]))
+        target = str(request.targets[0])
+        if self._outcome == "ok":
+            item = FetchResult(
+                target=target,
+                final_url=target,
+                status="success",
+                title="T",
+                content="body " * 80,
+                content_metadata=ContentMetadata(
+                    media_type="text/html",
+                    retrieved_at=None,
+                    truncated=False,
+                    quality="high",
+                    egress="browser",
+                ),
+                provenance=(Provenance(provider="builtin-fetch", outcome="success"),),
+            )
+        else:
+            item = FetchResult(
+                target=target,
+                final_url=None,
+                status="failed",
+                error=ErrorDetail(
+                    code="provider_unavailable",
+                    message="unavailable",
+                    retryable=True,
+                    request_id="t",
+                    provider="builtin-fetch",
+                ),
+                provenance=(Provenance(provider="builtin-fetch", outcome="failed"),),
+            )
+        return FetchBatch(items=(item,), meta=FetchMeta(), context=context)
+
+
 class _FakeServices:
-    def __init__(self, service, items) -> None:
+    def __init__(self, service, items, fetch_service=None) -> None:
         self.search = service
         self.provider_items = tuple(items)
+        self.fetch = fetch_service or _FakeFetchService()
 
 
 class _FakeRuntime:
@@ -135,7 +186,12 @@ def live_census_env(monkeypatch, tmp_path):
         "domains": {
             "web": ["q1", "q2", "q3"],
             "news": ["q1", "q2", "q3"],
-        }
+        },
+        "fetch_urls": {
+            "static": ["https://example.com/static"],
+            "js": ["https://example.com/js"],
+            "anticrawl": ["https://example.com/anticrawl"],
+        },
     }
     queries_path = tmp_path / "queries.json"
     queries_path.write_text(__import__("json").dumps(queries), encoding="utf-8")
@@ -240,3 +296,62 @@ def test_probe_source_upstream_provider_error_records_detail(live_census_env):
     verdict = asyncio.run(scenario())
     assert verdict.outcome == "FAIL"
     assert verdict.program_error is None
+
+
+def test_fetch_probes_cover_all_three_url_classes(live_census_env, monkeypatch):
+    """doctor --live 的 fetch 探测覆盖 static/js/anticrawl 三类（每类首个）。"""
+
+    import souwen.server.v2_runtime as v2_runtime_module
+
+    from souwen.platform.provider_spi import (
+        PageInfo,
+        Provenance,
+        RequestContext,
+        SearchItem,
+        SearchMeta,
+        SearchPage,
+    )
+
+    def fake_page(provider: str) -> SearchPage:
+        items = tuple(
+            SearchItem(
+                id=f"{provider}:{rank}",
+                title=f"result {rank}",
+                url=f"https://example.com/{provider}/{rank}",
+                rank=rank,
+                provenance=(Provenance(provider=provider, attempt=1, outcome="success"),),
+            )
+            for rank in range(1, 4)
+        )
+        return SearchPage(
+            items=items,
+            page=PageInfo(limit=5, total=len(items)),
+            meta=SearchMeta(requested=(provider,), succeeded=(provider,)),
+            context=RequestContext(request_id=f"doctor-test-{provider}"),
+        )
+
+    class _Search:
+        async def search(self, request, context, execution):
+            return fake_page(request.providers[0].id)
+
+    fetch_service = _FakeFetchService()
+    runtime = _FakeRuntime(_FakeServices(_Search(), [], fetch_service=fetch_service))
+    monkeypatch.setattr(doctor, "build_target_runtime", lambda cfg: runtime)
+    monkeypatch.setattr(v2_runtime_module, "search_source_hosts", lambda: {})
+
+    reports = doctor.run_live_census(["browser"])
+    fetch_verdicts = [v for v in reports[0].verdicts if v.source.startswith("fetch:")]
+    assert len(fetch_verdicts) == 3
+    assert all(v.outcome == "PASS" for v in fetch_verdicts)
+    assert {v.source for v in fetch_verdicts} == {
+        "fetch:https://example.com/static",
+        "fetch:https://example.com/js",
+        "fetch:https://example.com/anticrawl",
+    }
+    # fetch 探测的 used_level 反映 ContentMetadata.egress
+    assert all(v.used_level == "browser" for v in fetch_verdicts)
+    assert fetch_service.targets == [
+        "https://example.com/static",
+        "https://example.com/js",
+        "https://example.com/anticrawl",
+    ]

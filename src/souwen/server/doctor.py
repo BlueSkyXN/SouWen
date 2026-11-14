@@ -34,6 +34,10 @@ _QUERIES_CANDIDATES = (
 )
 _PROBES_PER_SOURCE = 3
 _MIN_VALID_RESULTS = 3
+# browser 级共享一个 Chromium 池（默认 2 页）；探测并发高于页数只会排队，
+# 每个探测再乘 30s 超时会集体超时。browser 级按池容量节流，其余级别放开。
+_BROWSER_PROBE_CONCURRENCY = 2
+_FETCH_PROBES_PER_LEVEL = 3
 
 
 @dataclass(slots=True)
@@ -186,6 +190,80 @@ async def _probe_source(runtime: TargetRuntime, source: str, queries: list[str])
     )
 
 
+async def _probe_fetch_targets(runtime: TargetRuntime, queries: dict) -> list[LevelVerdict]:
+    """每级别抽样固定抓取 URL（fetch 模式）：覆盖抓取链而不仅是搜索源。
+
+    queries.json 的 fetch_urls 按 static/js/anticrawl 三类组织；每类取
+    首个，保证三类链路（静态、JS 渲染、反爬）都有覆盖。
+    """
+
+    groups = queries.get("fetch_urls") or {}
+    if isinstance(groups, dict):
+        targets: list[str] = []
+        for entries in groups.values():
+            if isinstance(entries, list) and entries:
+                targets.append(str(entries[0]))
+    elif isinstance(groups, list):
+        targets = [str(item) for item in groups[:_FETCH_PROBES_PER_LEVEL]]
+    else:
+        targets = []
+    targets = targets[:_FETCH_PROBES_PER_LEVEL]
+    if not targets:
+        return []
+    from souwen.platform.provider_spi import (
+        FetchRequest,
+    )
+
+    verdicts: list[LevelVerdict] = []
+    for target_url in targets:
+        valid = False
+        used = None
+        try:
+            batch = await runtime.services.fetch.fetch(
+                FetchRequest(targets=(target_url,)),
+                RequestContext(request_id=f"doctor-fetch-{target_url[:40]}"),
+                ExecutionContext.with_timeout(30),
+            )
+            item = batch.items[0]
+            valid = item.status == "success" and bool((item.content or "").strip())
+            detail = "" if valid else str(
+                getattr(getattr(item, "error", None), "code", "empty content")
+            )
+            outcome = "PASS" if valid else "FAIL"
+            used = getattr(item.content_metadata, "egress", None) if item.content_metadata else None
+        except Exception as exc:
+            if isinstance(exc, ProviderError):
+                outcome = "FAIL"
+                code = getattr(exc, "code", None)
+                detail = str(getattr(code, "value", type(exc).__name__))
+            else:
+                verdicts.append(
+                    LevelVerdict(
+                        source=f"fetch:{target_url[:48]}",
+                        level="",
+                        outcome="ERROR",
+                        valid_count=0,
+                        total=1,
+                        detail="",
+                        used_level=None,
+                        program_error=f"{type(exc).__name__}: {exc}"[:200],
+                    )
+                )
+                continue
+        verdicts.append(
+            LevelVerdict(
+                source=f"fetch:{target_url[:48]}",
+                level="",
+                outcome=outcome,
+                valid_count=1 if valid else 0,
+                total=1,
+                detail=detail,
+                used_level=used,
+            )
+        )
+    return verdicts
+
+
 def _domain_for(runtime: TargetRuntime, source: str) -> str:
     for item in runtime.services.provider_items:
         if item.provider == source:
@@ -237,16 +315,28 @@ def run_live_census(levels: list[str], *, only: set[str] | None = None) -> list[
 
         async def run_all():
             # 探测与 close 必须在同一个事件循环里（httpx 客户端不能跨 loop 关闭）
-            verdicts = await asyncio.gather(
-                *(
+            if level == "browser":
+                # 共享 Chromium 池页数有限：并发超过池容量只会排队并把超时叠加
+                semaphore = asyncio.Semaphore(_BROWSER_PROBE_CONCURRENCY)
+
+                async def bounded(source: str):
+                    async with semaphore:
+                        return await _probe_source(
+                            runtime, source, queries["domains"][_domain_for(runtime, source)]
+                        )
+
+                probes = [bounded(source) for source in sources]
+            else:
+                probes = [
                     _probe_source(
                         runtime,
                         source,
                         queries["domains"][_domain_for(runtime, source)],
                     )
                     for source in sources
-                )
-            )
+                ]
+            verdicts = await asyncio.gather(*probes)
+            verdicts += await _probe_fetch_targets(runtime, queries)
             try:
                 await runtime.close()
             except Exception:
