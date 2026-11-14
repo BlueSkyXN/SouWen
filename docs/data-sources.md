@@ -20,14 +20,14 @@
 |---|---|---|---|---|---:|---:|
 | `arxiv` | `search` | `search:configured` | none | `export.arxiv.org` | no | no |
 | `arxiv_fulltext` | `fetch` | `fetch:configured` | none | `arxiv.org` | no | no |
-| `baidu` | `search` | `search:configured` | none | `www.baidu.com` | no | no |
-| `brave` | `search` | `search:configured` | none | `search.brave.com` | no | no |
+| `baidu` | `search` | `search:configured` | none | `www.baidu.com` | yes | no |
+| `brave` | `search` | `search:configured` | none | `search.brave.com` | yes | no |
 | `builtin-fetch` | `fetch` | `fetch:always` | none | none | no | no |
-| `coolapk` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `coolapk` | `search` | `search:configured` | none | `html.duckduckgo.com` | yes | no |
 | `crossref` | `search` | `search:configured` | none | `api.crossref.org` | no | no |
 | `datacite` | `search` | `search:configured` | none | `api.datacite.org` | no | no |
 | `doaj` | `search` | `search:always` | optional: `DOAJ_API_KEY` | `doaj.org` | no | no |
-| `duckduckgo_news` | `search` | `search:configured` | none | `duckduckgo.com` | no | no |
+| `duckduckgo_news` | `search` | `search:configured` | none | `duckduckgo.com` | yes | no |
 | `epo_ops` | `search` | `search:configured` | required: `EPO_CONSUMER_KEY`, `EPO_CONSUMER_SECRET` | `ops.epo.org` | no | no |
 | `eric` | `search` | `search:configured` | none | `api.ies.ed.gov` | no | no |
 | `europepmc` | `search` | `search:configured` | none | `www.ebi.ac.uk` | no | no |

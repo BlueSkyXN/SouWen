@@ -13,7 +13,7 @@ Provider Manager 对 manifest、configuration、secret reference 和显式 facto
 ## 1. 分层与依赖方向
 
 ```text
-MCP client (stdio) │ HTTP client (/search /fetch /mcp) │ Python (souwen.search/fetch)
+MCP client (stdio) │ HTTP client (/search /fetch /mcp) │ Python (souwen 的 search/fetch 函数)
                          │
                          ▼
 agent.py 门面 ── server/（app、auth、限流、MCP server、doctor）
