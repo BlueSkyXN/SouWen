@@ -4,16 +4,17 @@
 > 判定口径：PASS = 3 查询 ≥2 有效；WARN = 1；FAIL = 0。取两次 leg 中较好的一次。
 > NOT PROBED = 零 Key 镜像里不可用（需免费 Key 且未配置或自建实例未配），不是失败。
 > 来源报告 leg：warp-on, warp-off（逐源取较优者，备注里保留该源实际来自哪条 leg）。
-> run：[43627393792](https://github.com/BlueSkyXN/SouWen/actions/runs/43627393792)
-> 源码 SHA：`a57eefaa6ce0d7d31add1b0b7dc95cd0e5d62b56`
+> run：[43629799107](https://github.com/BlueSkyXN/SouWen/actions/runs/43629799107)
+> 源码 SHA：`ddc7db90a26ad2ff80f4baaf69b411d4303eab6f`
 > WARP：`warp=on verified after 1 attempts`
 
-汇总：FAIL 2 · PASS 24 · WARN 6 · NOT PROBED 4，共 36 源（其中 32 源有体检结果）。
+汇总：FAIL 1 · PASS 26 · WARN 5 · NOT PROBED 4，共 36 源（其中 32 源有体检结果）。
 
 | 源 | 结果 | 有效/总数 | 备注 |
 |---|---|---|---|
 | `arxiv` | PASS | 3/3 | [warp-on] all probes valid |
 | `arxiv_fulltext` | PASS | 3/3 | [warp-on] all probes valid |
+| `baidu` | PASS | 2/3 | [warp-off] gateway_timeout |
 | `builtin-fetch` | PASS | 3/3 | [warp-on] all probes valid |
 | `crossref` | PASS | 3/3 | [warp-on] all probes valid |
 | `datacite` | PASS | 3/3 | [warp-on] all probes valid |
@@ -31,19 +32,18 @@
 | `library_of_congress` | PASS | 3/3 | [warp-on] all probes valid |
 | `open_library` | PASS | 2/3 | [warp-on] bad_gateway |
 | `openaire` | PASS | 3/3 | [warp-on] all probes valid |
-| `openalex` | PASS | 3/3 | [warp-on] all probes valid |
+| `openalex` | PASS | 3/3 | [warp-off] all probes valid |
 | `pubmed` | PASS | 3/3 | [warp-on] all probes valid |
 | `stackoverflow` | PASS | 3/3 | [warp-on] all probes valid |
+| `wayback` | PASS | 3/3 | [warp-off] all probes valid |
 | `wikipedia` | PASS | 3/3 | [warp-on] all probes valid |
 | `zenodo` | PASS | 3/3 | [warp-on] all probes valid |
-| `baidu` | WARN | 1/3 | [warp-on] only 0 valid items |
-| `brave` | WARN | 1/3 | [warp-on] gateway_timeout |
+| `brave` | WARN | 1/3 | [warp-off] gateway_timeout |
 | `coolapk` | WARN | 1/3 | [warp-on] only 0 valid items |
 | `duckduckgo_news` | WARN | 1/3 | [warp-on] gateway_timeout; only 0 valid items |
 | `osti` | WARN | 1/3 | [warp-on] bad_gateway |
-| `yahoo` | WARN | 1/3 | [warp-on] gateway_timeout |
+| `yahoo` | WARN | 1/3 | [warp-off] gateway_timeout |
 | `searxng` | FAIL | 0/3 | [warp-on] bad_gateway |
-| `wayback` | FAIL | 0/3 | [warp-on] bad_gateway; gateway_timeout |
 | `epo_ops` | NOT PROBED | – | needs free key: EPO_CONSUMER_KEY, EPO_CONSUMER_SECRET |
 | `patentsview` | NOT PROBED | – | needs free key: PATENTSVIEW_API_KEY |
 | `uspto_odp` | NOT PROBED | – | needs free key: USPTO_API_KEY |
