@@ -246,3 +246,36 @@ def test_verification_and_js_shell_detection() -> None:
     assert looks_like_blocked_content("<html><title>Just a moment...</title></html>", "")
     assert looks_like_blocked_content("x" * 30000, "tiny")
     assert not looks_like_blocked_content("<html>ok</html>", "real body " * 50)
+
+
+def test_content_quality_shared_gate_replaces_63_char_rule() -> None:
+    """SPEC 4.3：生产质量门禁统一为 200 字阈值 + 验证页/JS 空壳判定。
+
+    旧规则（≤63 字判 low）在 6 个生产调用点内联；现在它们都走
+    content_quality，此测试锁定生产消费语义。
+    """
+
+    from souwen.providers.runtime_clients.web._extractor_chain import content_quality
+
+    # 200 字以上：高质量
+    assert content_quality("word " * 60) == "high"
+    # 63~200 字的正文：低质量（升级候选）——旧规则会误判为 high
+    assert content_quality("word " * 20) == "low"
+    # 验证页标记：即便拿不到 HTML 也应 low
+    assert content_quality("") == "low"
+    # 带原始 HTML：JS 空壳（HTML 大、正文短）
+    assert content_quality("tiny", html="x" * 30000) == "low"
+    # 带原始 HTML：正常短页（HTML 小、正文短）仍 low（升级判定保守）
+    assert content_quality("short", html="<html>ok</html>") == "low"
+
+
+def test_browser_executor_uses_shared_quality_gate() -> None:
+    """browser executor 的 quality 字段走共享门禁（63→200 字语义）。"""
+
+    import inspect
+
+    from souwen.server.browser_executor import InProcessBrowserFetchExecutor
+
+    # 不启动浏览器：静态检查 quality 来源是共享门禁
+    source = inspect.getsource(InProcessBrowserFetchExecutor)
+    assert "content_quality" in source

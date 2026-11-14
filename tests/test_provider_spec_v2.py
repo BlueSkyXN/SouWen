@@ -591,7 +591,7 @@ async def test_legacy_fetch_factory_preserves_typed_lifecycle_and_redaction() ->
         return await client.search(str(request.target))
 
     def project(_response, request, _context):
-        content = "x" * 64
+        content = "x" * 200
         return FetchResult(
             target=request.target,
             final_url=request.target,

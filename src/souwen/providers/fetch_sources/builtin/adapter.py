@@ -9,6 +9,7 @@ from typing import Any, Callable, Protocol
 
 from souwen.common_runtime.errors import SouWenError
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
+from souwen.providers.runtime_clients.web._extractor_chain import content_quality
 from souwen.platform.provider_spi import (
     ContentMetadata,
     ExecutionContext,
@@ -200,7 +201,7 @@ def _canonical_result(
                 if isinstance(raw.get("content_length_bytes"), int)
                 else None
             ),
-            quality="low" if len(content.strip()) <= 63 else "high",
+            quality=content_quality(content),
         ),
         provenance=(
             Provenance(

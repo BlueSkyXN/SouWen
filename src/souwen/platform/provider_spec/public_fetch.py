@@ -72,7 +72,7 @@ def project_public_fetch_receipt(
             retrieved_at=retrieved_at,
             truncated=truncated,
             content_length=len(content.encode()),
-            quality="low" if len(content.strip()) <= 63 else "high",
+            quality=("high" if len(content.strip()) >= 200 else "low"),
             egress=(getattr(receipt, "raw", None) or {}).get("egress"),
         ),
         provenance=(

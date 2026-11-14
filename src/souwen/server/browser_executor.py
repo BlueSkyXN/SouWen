@@ -8,6 +8,7 @@ from souwen.common_runtime.provider_support.browser_fetch import (
     BrowserAcquisitionError,
     fetch_page_content,
 )
+from souwen.providers.runtime_clients.web._extractor_chain import content_quality
 
 
 class InProcessBrowserFetchExecutor:
@@ -70,7 +71,7 @@ class InProcessBrowserFetchExecutor:
                 retrieved_at=retrieved_at,
                 truncated=outcome.truncated,
                 content_length=len(outcome.content.encode()),
-                quality="low" if len(outcome.content.strip()) <= 63 else "high",
+                quality=content_quality(outcome.content),
                 egress="browser",
             ),
             provenance=(

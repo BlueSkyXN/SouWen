@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 from souwen.common_runtime.security import validate_fetch_url
+from souwen.providers.runtime_clients.web._extractor_chain import content_quality
+
 from souwen.platform.provider_spi import (
     ContentMetadata,
     FetchResult,
@@ -62,7 +64,7 @@ def _project(receipt: Any, request: FetchTargetRequest, context: RequestContext)
             retrieved_at=now,
             truncated=False,
             content_length=len(content.encode()),
-            quality="low" if len(content.strip()) <= 63 else "high",
+            quality=content_quality(content),
         ),
         provenance=(
             Provenance(provider="wayback", attempt=1, outcome="success", retrieved_at=now),

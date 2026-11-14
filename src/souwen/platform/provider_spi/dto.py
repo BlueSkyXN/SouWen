@@ -339,7 +339,7 @@ class FetchResult(CanonicalModel):
                 raise ValueError("successful fetch requires non-empty content and metadata")
             if self.error is not None:
                 raise ValueError("successful fetch cannot include an error")
-            expected_quality = "low" if len(self.content.strip()) <= 63 else "high"
+            expected_quality = "high" if len(self.content.strip()) >= 200 else "low"
             if self.content_metadata.quality != expected_quality:
                 raise ValueError("content quality must match normalized content length")
         else:

@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from souwen.common_runtime.security import validate_fetch_url
+from souwen.providers.runtime_clients.web._extractor_chain import content_quality
+
 from souwen.platform.provider_spi import (
     ContentMetadata,
     FetchResult,
@@ -86,7 +88,7 @@ def _result(receipt: Any, request: FetchTargetRequest, provider_id: str) -> Fetc
             retrieved_at=retrieved_at,
             truncated=False,
             content_length=len(content.encode()),
-            quality="low" if len(content.strip()) <= 63 else "high",
+            quality=content_quality(content),
         ),
         provenance=(
             Provenance(

@@ -18,7 +18,7 @@ class _Client:
         return LegacyFetchResult(
             url=url,
             final_url=url,
-            content="vertical canonical content " * 4,
+            content="vertical canonical content " * 8,
             content_format="text",
             source="builtin",
             raw={

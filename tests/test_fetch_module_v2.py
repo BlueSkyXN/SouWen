@@ -28,7 +28,7 @@ class _Manager:
             adapter_id if adapter_id == "builtin-fetch" else adapter_id.removesuffix("-fetch")
         )
         content = (
-            "short" if "short" in str(request.target) else "long enough canonical content " * 4
+            "short" if "short" in str(request.target) else "long enough canonical content " * 8
         )
         return FetchResult(
             target=request.target,
@@ -39,7 +39,7 @@ class _Manager:
                 media_type="text/plain",
                 retrieved_at=datetime(2026, 7, 24, tzinfo=timezone.utc),
                 truncated=False,
-                quality="low" if len(content) <= 63 else "high",
+                quality="low" if len(content.strip()) < 200 else "high",
             ),
             provenance=(Provenance(provider=provider_id, outcome="success"),),
         )
@@ -54,7 +54,7 @@ class _BrowserExecutor:
         self.targets.append(request.target)
         if self.fail:
             raise ProviderError(ProviderErrorCode.WORKER_OVERLOADED)
-        content = "browser rendered canonical content " * 4
+        content = "browser rendered canonical content " * 8
         return FetchResult(
             target=request.target,
             final_url=request.target,

@@ -158,4 +158,25 @@ def looks_like_blocked_content(html: str, content: str | None) -> bool:
     return len(html) > 20_000 and len(body) < MIN_BODY_CHARS
 
 
-__all__ = ["MIN_BODY_CHARS", "extract_body", "looks_like_blocked_content"]
+def content_quality(content: str | None, *, html: str | None = None) -> str:
+    """Shared production quality gate (SPEC 4.3 replaces the old 63-char rule).
+
+    正文达到 200 字阈值即 high；短正文只有在拿不到原始 HTML（非 HTML
+    抓取链路）时才按长度判 low，否则交给 looks_like_blocked_content
+    （验证页 / JS 空壳 / 短正文统一升级判定）。
+    """
+
+    body = (content or "").strip()
+    if len(body) >= MIN_BODY_CHARS:
+        return "high"
+    if html is not None and looks_like_blocked_content(html, body):
+        return "low"
+    return "low" if body else "low"
+
+
+__all__ = [
+    "MIN_BODY_CHARS",
+    "content_quality",
+    "extract_body",
+    "looks_like_blocked_content",
+]
