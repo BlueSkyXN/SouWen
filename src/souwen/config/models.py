@@ -71,8 +71,7 @@ class SouWenConfig(BaseModel):
 
     主要字段组:
         论文源凭据/联系字段: openalex_api_key, openalex_email,
-                           semantic_scholar_api_key, core_api_key, pubmed_api_key,
-                           ieee_api_key
+                           pubmed_api_key
 
         专利源 API Key: uspto_api_key, epo_consumer_key/secret
 
@@ -143,13 +142,10 @@ class SouWenConfig(BaseModel):
     openalex_api_key: str | None = None
     # 已弃用兼容字段；当前不发送给 OpenAlex，配额由 api_key 控制。
     openalex_email: str | None = None
-    semantic_scholar_api_key: str | None = None
-    core_api_key: str | None = None
     openaire_api_key: str | None = None
     doaj_api_key: str | None = None
     zenodo_access_token: str | None = None
     pubmed_api_key: str | None = None
-    ieee_api_key: str | None = None
     # Zotero 个人文献库
 
     # ===== 专利数据源 =====

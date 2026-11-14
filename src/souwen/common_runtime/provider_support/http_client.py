@@ -39,8 +39,8 @@ class SouWenHttpClient(HttpTransport):
     - 统一错误处理和日志
 
     使用方式：
-        async with SouWenHttpClient(source_name="semantic_scholar") as client:
-            resp = await client.get("https://api.semanticscholar.org/...")
+        async with SouWenHttpClient(source_name="crossref") as client:
+            resp = await client.get("https://api.crossref.org/works")
 
     Args:
         base_url: 基础 URL（可选，用于 relative URL）

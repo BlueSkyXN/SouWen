@@ -15,10 +15,7 @@ paper:
   openalex_api_key: ~
   # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: ~
-  semantic_scholar_api_key: ~
-  core_api_key: ~
   pubmed_api_key: ~
-  ieee_api_key: ~
   openaire_api_key: ~
   doaj_api_key: ~
   zenodo_access_token: ~
@@ -102,7 +99,7 @@ jina_fallback_enabled: false
 search_defaults:
   web: [yahoo, baidu, brave]
   news: [duckduckgo_news]
-  paper: [huggingface, crossref, openalex, datacite, zenodo, eric, pubmed, figshare, europepmc, hal, doaj, iacr, arxiv, openaire, osti, semantic_scholar]
+  paper: [huggingface, crossref, openalex, datacite, zenodo, eric, pubmed, figshare, europepmc, hal, doaj, iacr, arxiv, openaire, osti]
   patent: []
   book: [library_of_congress, open_library, internet_archive]
   code: [stackoverflow, github]
