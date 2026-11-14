@@ -104,9 +104,13 @@ async def _validated_page(
 
     # 连接级 SSRF 约束（SPEC 10）：浏览器所有流量走本请求的回环代理，
     # 代理对每个 origin 重新校验并以校验后的 IP 直连，杜绝 DNS 重绑定。
-    # 外层 proxy 参数语义是"browser 级本身的代理"；WARP/用户代理与 pinning
-    # 不能同时成立（worker 时代同样如此），有外部代理时记录并放弃 pinning。
-    pinned = PinnedLoopbackProxy(target_url=url, resolver=resolve_fetch_target_async)
+    # 外层 proxy 参数是 browser 级的上游代理（WARP/用户代理）：回环代理把
+    # 已校验的 IP 经上游连出，pinning 与代理同时成立（SPEC 5.1）。
+    pinned = PinnedLoopbackProxy(
+        target_url=url,
+        resolver=resolve_fetch_target_async,
+        upstream_proxy=proxy,
+    )
     await pinned.start()
     try:
         pool = _shared_pool()

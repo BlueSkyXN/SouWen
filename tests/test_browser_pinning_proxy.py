@@ -185,3 +185,96 @@ async def test_browser_page_routes_through_the_pinned_proxy(monkeypatch) -> None
 
     assert len(seen_proxies) == 1
     assert seen_proxies[0].startswith("http://127.0.0.1:")
+
+
+@pytest.mark.asyncio
+async def test_pinning_proxy_routes_through_socks5_upstream_with_ip_only() -> None:
+    """上游代理（WARP 形态的 socks5）与 pinning 同时成立。
+
+    SOCKS5 上游只收到校验后的 IP 字面量（ATYP=1/4），从不接收域名；
+    SSRF 拒绝的 origin 不会到达上游。
+    """
+
+    socks_requests: list[bytes] = []
+
+    async def socks_upstream(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        # greeting: VER NMETHODS METHODS → 回 NO AUTH
+        greeting = await reader.readexactly(2)
+        assert greeting[0] == 0x05
+        await reader.readexactly(greeting[1])
+        writer.write(b"\x05\x00")
+        await writer.drain()
+        request = await reader.readexactly(4)
+        atyp = request[3]
+        if atyp == 0x01:
+            addr = await reader.readexactly(4)
+            socks_requests.append(bytes(request) + addr)
+        elif atyp == 0x04:
+            raw = await reader.readexactly(16)
+            socks_requests.append(bytes(request) + raw)
+        else:
+            raise AssertionError("upstream must not receive a domain name")
+        await reader.readexactly(2)  # 端口
+        # 成功应答：VER REP RSV ATYP=1 BND 0.0.0.0:0
+        writer.write(b"\x05\x00\x00\x01" + b"\x00" * 4 + b"\x00\x00")
+        await writer.drain()
+        # CONNECT 隧道内：透明转发
+        data = await reader.readexactly(4)
+        assert data == b"ping"
+        writer.write(b"pong")
+        await writer.drain()
+        writer.close()
+        with suppress(Exception):
+            await writer.wait_closed()
+
+    upstream_server = await asyncio.start_server(socks_upstream, "127.0.0.1", 0)
+    upstream_port = int(upstream_server.sockets[0].getsockname()[1])
+    target_url = "https://example.com:443/"
+    pinned = ResolvedFetchTarget(
+        original_url=target_url,
+        connect_url="https://93.184.216.34/",
+        host_header="example.com",
+        sni_hostname="example.com",
+    )
+
+    async def resolver(url: str):
+        if url == target_url:
+            return pinned, ""
+        return None, "blocked"
+
+    proxy = PinnedLoopbackProxy(
+        target_url=target_url,
+        resolver=resolver,
+        upstream_proxy=f"socks5://127.0.0.1:{upstream_port}",
+    )
+    await proxy.start()
+    proxy_port = int(proxy.url.rsplit(":", 1)[1])
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", proxy_port)
+        writer.write(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n")
+        await writer.drain()
+        established = await reader.readuntil(b"\r\n\r\n")
+        writer.write(b"ping")
+        await writer.drain()
+        tunneled = await reader.readexactly(4)
+        writer.close()
+        await writer.wait_closed()
+
+        # SSRF 拒绝的 origin：502，不产生新的上游连接
+        blocked_reader, blocked_writer = await asyncio.open_connection("127.0.0.1", proxy_port)
+        blocked_writer.write(b"CONNECT evil.example:443 HTTP/1.1\r\nHost: evil.example\r\n\r\n")
+        await blocked_writer.drain()
+        blocked = await blocked_reader.read()
+        blocked_writer.close()
+        await blocked_writer.wait_closed()
+    finally:
+        await proxy.close()
+        upstream_server.close()
+        await upstream_server.wait_closed()
+
+    assert established == b"HTTP/1.1 200 Connection Established\r\n\r\n"
+    assert tunneled == b"pong"
+    assert blocked.startswith(b"HTTP/1.1 502")
+    # 上游恰好收到一个 CONNECT 请求，目标地址是校验后的 IP，不是域名
+    assert len(socks_requests) == 1
+    assert socks_requests[0][3] in (0x01, 0x04)  # ATYP: IPv4 / IPv6

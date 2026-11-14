@@ -3,6 +3,10 @@
 Browser Worker 并入主进程后，本模块是其 network_proxy 的等价实现：每个浏览器
 请求经回环代理转发，代理对每个 origin 重新执行 SSRF 校验，并用校验后的 IP
 直连，杜绝校验与连接之间 DNS 解析不一致带来的重绑定风险。
+
+配置了上游代理（WARP / 用户代理）时，代理链路为 browser → 本回环代理 →
+上游代理 → 校验 IP：上游只拿到 IP 字面量，仍不参与域名解析，pinning 与
+代理同时成立（SPEC 5.1）。
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ from souwen.common_runtime.provider_support.browser_fetch import BrowserAcquisit
 ResolveTarget = Callable[[str], Awaitable[tuple[ResolvedFetchTarget | None, str]]]
 _MAX_HEADER_BYTES = 64 * 1024
 _MAX_PROXY_CONNECTIONS = 32
+_SOCKS5_TIMEOUT_SECONDS = 10.0
+_SOCKS5_REPLY_LEN = 10
 
 
 def _origin(url: str) -> tuple[str, str, int]:
@@ -53,6 +59,64 @@ def _parse_authority(value: str) -> tuple[str, int]:
     return parsed.hostname.lower().rstrip("."), port
 
 
+def _ipv6_literal(address: str) -> bool:
+    return ":" in address and not address.startswith("[")
+
+
+def _upstream_parts(upstream_proxy: str) -> tuple[str, str, int]:
+    """Split an upstream proxy URL into (scheme, host, port)."""
+
+    parsed = urlparse(upstream_proxy)
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in {"socks5", "socks5h", "http", "https"} or not parsed.hostname:
+        raise BrowserAcquisitionError("policy_blocked")
+    try:
+        port = parsed.port
+    except ValueError:
+        raise BrowserAcquisitionError("policy_blocked") from None
+    if port is None:
+        port = 1080 if scheme.startswith("socks5") else (443 if scheme == "https" else 80)
+    return scheme, parsed.hostname, port
+
+
+async def _connect_via_socks5(
+    upstream_reader: asyncio.StreamReader,
+    upstream_writer: asyncio.StreamWriter,
+    pinned_address: str,
+    port: int,
+) -> None:
+    """SOCKS5 CONNECT (no auth, RFC 1928) to the validated IP literal."""
+
+    # 地址只可能是校验后的 IP 字面量；不再给上游任何域名。
+    import ipaddress
+
+    try:
+        address = ipaddress.ip_address(pinned_address)
+    except ValueError:
+        raise BrowserAcquisitionError("policy_blocked") from None
+    if address.version == 4:
+        address_bytes = bytes((0x01,)) + address.packed
+    else:
+        address_bytes = bytes((0x04,)) + address.packed
+    # greeting: VER=5, 1 method, NO AUTHENTICATION REQUIRED
+    upstream_writer.write(b"\x05\x01\x00")
+    await upstream_writer.drain()
+    greeting = await asyncio.wait_for(upstream_reader.readexactly(2), _SOCKS5_TIMEOUT_SECONDS)
+    if greeting[0] != 0x05 or greeting[1] != 0x00:
+        raise BrowserAcquisitionError("worker_unavailable")
+    # request: VER=5 CMD=CONNECT RSV=0 ATYP + addr + port
+    request = b"\x05\x01\x00" + address_bytes + port.to_bytes(2, "big")
+    upstream_writer.write(request)
+    await upstream_writer.drain()
+    reply = await asyncio.wait_for(
+        upstream_reader.readexactly(_SOCKS5_REPLY_LEN), _SOCKS5_TIMEOUT_SECONDS
+    )
+    # reply: VER REP RSV ATYP BND.ADDR BND.PORT — 固定按 IPv4 长度读取，
+    # 域名/IPv6 的 BND.ADDR 均为占位，长度差异只影响尾部字节。
+    if reply[0] != 0x05 or reply[1] != 0x00:
+        raise BrowserAcquisitionError("worker_unavailable")
+
+
 class PinnedLoopbackProxy:
     """Policy proxy; every browser origin is revalidated and connected by pinned IP."""
 
@@ -61,9 +125,11 @@ class PinnedLoopbackProxy:
         *,
         target_url: str,
         resolver: ResolveTarget = resolve_fetch_target_async,
+        upstream_proxy: str | None = None,
     ) -> None:
         self._allowed_origins = {_origin(target_url)}
         self._resolver = resolver
+        self._upstream_proxy = upstream_proxy
         self._server: asyncio.AbstractServer | None = None
         self._handlers: set[asyncio.Task[None]] = set()
         self._active_connections = 0
@@ -95,6 +161,25 @@ class PinnedLoopbackProxy:
             await self.close()
             raise BrowserAcquisitionError("worker_unavailable", retryable=True)
         self._port = int(sockets[0].getsockname()[1])
+
+    async def _open_upstream(self, pinned_address: str, port: int):
+        """连接校验后的 IP；有上游代理时经上游建连，仍不交给上游解析域名。"""
+
+        if self._upstream_proxy is None:
+            return await asyncio.open_connection(
+                pinned_address if not _ipv6_literal(pinned_address) else f"[{pinned_address}]",
+                port,
+            )
+        scheme, upstream_host, upstream_port = _upstream_parts(self._upstream_proxy)
+        reader, writer = await asyncio.open_connection(upstream_host, upstream_port)
+        if scheme.startswith("socks5"):
+            await _connect_via_socks5(reader, writer, pinned_address, port)
+            return reader, writer
+        if scheme in {"http", "https"}:
+            # HTTP 上游代理：把 pinning 代理变成链式绝对 URI 代理。
+            # Chromium 的 CONNECT 隧道不经过本分支（见 _handle）。
+            raise BrowserAcquisitionError("policy_blocked")
+        raise BrowserAcquisitionError("policy_blocked")
 
     async def _accept(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         task = asyncio.current_task()
@@ -162,9 +247,8 @@ class PinnedLoopbackProxy:
         if method == "CONNECT":
             hostname, port = _parse_authority(request_target)
             target = await self._validate("https", hostname, port)
-            upstream_reader, upstream_writer = await asyncio.open_connection(
-                _pinned_address(target),
-                port,
+            upstream_reader, upstream_writer = await self._open_upstream(
+                _pinned_address(target), port
             )
             writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             await writer.drain()
@@ -188,10 +272,7 @@ class PinnedLoopbackProxy:
         if remainder:
             raise BrowserAcquisitionError("policy_blocked")
 
-        upstream_reader, upstream_writer = await asyncio.open_connection(
-            _pinned_address(target),
-            port,
-        )
+        upstream_reader, upstream_writer = await self._open_upstream(_pinned_address(target), port)
         path = parsed.path or "/"
         if parsed.query:
             path = f"{path}?{parsed.query}"
