@@ -24,6 +24,10 @@ from souwen.platform.provider_spi import (
 
 BUILTIN_FETCH_ADAPTER_ID = "builtin-fetch"
 
+# 正文短于这个长度时，静态抓取的结果不算可用；升级到 browser 级再试。
+# 与冻结的体检通过线一致（scripts/census/queries.json: min_fetch_chars）。
+_MIN_USABLE_BODY_CHARS = 500
+
 
 @dataclass(frozen=True, slots=True)
 class _TargetOutcome:
@@ -313,7 +317,16 @@ class FetchModuleService:
         if request.policy is not None and request.policy.respect_robots is True:
             return False
         if result.status == "success":
-            return result.content_metadata is not None and result.content_metadata.quality == "low"
+            if result.content_metadata is None:
+                return False
+            if result.content_metadata.quality == "low":
+                return True
+            # SPEC 4.3 的门槛是 200 字符，而体检通过线是 500。200–500 之间的
+            # 页面既不算失败也不会升级，实际是 JS 空壳的残余正文（静态抓取
+            # 拿到外壳但拿不到渲染后的内容）。这类页面同样升级到 browser，
+            # 否则它们永远停在"有点内容但不够"的状态。
+            body = (result.content or "").strip()
+            return len(body) < _MIN_USABLE_BODY_CHARS
         return result.error is not None and result.error.code in {
             "provider_timeout",
             "provider_unavailable",

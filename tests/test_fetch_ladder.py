@@ -279,3 +279,104 @@ def test_browser_executor_uses_shared_quality_gate() -> None:
     # 不启动浏览器：静态检查 quality 来源是共享门禁
     source = inspect.getsource(InProcessBrowserFetchExecutor)
     assert "content_quality" in source
+
+
+class _BrowserFake:
+    """记录是否被调用的 browser 执行器替身。"""
+
+    def __init__(self, content: str = "rendered " * 200) -> None:
+        self.calls = 0
+        self._content = content
+
+    async def fetch(self, request, context, execution):
+        from souwen.platform.provider_spi import ContentMetadata as _CM
+
+        self.calls += 1
+        # 编排层传入单个 FetchTargetRequest（不是 FetchRequest）
+        target = str(request.target)
+        return FetchResult(
+            target=target,
+            final_url=target,
+            status="success",
+            title="B",
+            content=self._content,
+            content_metadata=_CM(
+                media_type="text/html",
+                retrieved_at=None,
+                truncated=False,
+                quality="high",
+                egress="browser",
+            ),
+            provenance=(Provenance(provider="builtin-fetch", outcome="success"),),
+        )
+
+
+@pytest.mark.parametrize("body_chars", [201, 330, 371, 499])
+def test_medium_body_escalates_to_browser(body_chars: int) -> None:
+    """200–499 字符的正文既不算 low 也不够体检通过线，必须升级到 browser。
+
+    回归：只按 quality == "low" 判定升级时，330/371 字符的 JS 空壳残余正文
+    被判 high，停止升级并返回不可用内容。
+    """
+
+    body = "x" * body_chars
+    manager = _Manager({"builtin-fetch": "ok"})
+    browser = _BrowserFake()
+
+    async def execute(adapter_id, request, request_context, execution):
+        manager.calls.append(adapter_id)
+        return FetchResult(
+            target=str(request.target),
+            final_url=str(request.target),
+            status="success",
+            title="T",
+            content=body,
+            content_metadata=ContentMetadata(
+                media_type="text/markdown",
+                retrieved_at=None,
+                truncated=False,
+                quality="high",  # 长度 ≥200 时共享门禁给 high
+                content_length=len(body),
+            ),
+            provenance=(Provenance(provider="builtin-fetch", outcome="success"),),
+        )
+
+    manager.execute = execute  # type: ignore[method-assign]
+    service = FetchModuleService(manager, browser_executor=browser)
+    batch = _run(service, "https://example.com/medium")
+
+    assert browser.calls == 1, "medium body must trigger a browser attempt"
+    assert batch.items[0].status == "success"
+    assert len(batch.items[0].content or "") >= 500
+    assert batch.items[0].content_metadata.egress == "browser"
+
+
+def test_body_at_or_above_usable_threshold_does_not_escalate() -> None:
+    manager = _Manager({"builtin-fetch": "ok"})
+    browser = _BrowserFake()
+
+    async def execute(adapter_id, request, request_context, execution):
+        manager.calls.append(adapter_id)
+        body = "x" * 500
+        return FetchResult(
+            target=str(request.target),
+            final_url=str(request.target),
+            status="success",
+            title="T",
+            content=body,
+            content_metadata=ContentMetadata(
+                media_type="text/markdown",
+                retrieved_at=None,
+                truncated=False,
+                quality="high",
+                content_length=len(body),
+            ),
+            provenance=(Provenance(provider="builtin-fetch", outcome="success"),),
+        )
+
+    manager.execute = execute  # type: ignore[method-assign]
+    service = FetchModuleService(manager, browser_executor=browser)
+    batch = _run(service, "https://example.com/long")
+
+    assert browser.calls == 0
+    assert batch.items[0].status == "success"
