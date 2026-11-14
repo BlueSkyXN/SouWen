@@ -1,20 +1,4 @@
-"""SouWen FastAPI 应用入口
-
-文件用途：
-    FastAPI 应用主文件，负责应用生命周期、中间件堆栈、异常处理和路由挂载。
-
-路由面（SPEC 2.4）：
-    POST /search   — 领域搜索（扁平 JSON）
-    POST /fetch    — 单 URL 抓取分页
-    GET  /sources  — 源清单与健康状态
-    GET  /healthz  — 探针
-    /mcp           — MCP streamable HTTP（与 HTTP 同一套 user 凭据校验）
-
-主要函数：
-    lifespan() -> AsyncContextManager
-        - 启动：日志、配置、WARP 协调、MCP session manager
-        - 关闭：target runtime、session cache、日志收尾
-"""
+"""SouWen FastAPI 应用入口"""
 
 from __future__ import annotations
 

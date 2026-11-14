@@ -1,8 +1,4 @@
-"""Per-source registration declaration (SPEC 7 单模块源形态).
-
-一个源的全部注册信息在此声明：manifest 与 Provider 构造。
-``server.v2_runtime`` 通过目录发现读取本文件，不再为任何源 id 写分支。
-"""
+"""Per-source registration (SPEC 7): manifest/spec/provider 与构造，目录发现注册。"""
 
 from __future__ import annotations
 

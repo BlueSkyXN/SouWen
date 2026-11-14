@@ -1,36 +1,4 @@
-"""HuggingFace Papers API 客户端
-
-官方端点: https://huggingface.co/api/papers/search?q={query}
-鉴权: 无需 Key
-限流: 宽松，无明确硬限制
-返回: JSON（title, summary, id, upvotes）
-
-文件用途：HuggingFace 每日精选论文搜索客户端，基于社区语义搜索，
-包含 upvotes 字段作为社区热度信号。每篇论文均对应一篇 arXiv 论文。
-
-参考来源：研究 https://github.com/jerpint/paperpal 项目，
-         复现其 HuggingFace Papers 语义搜索能力，并整合进 SouWen 统一数据模型。
-
-函数/类清单：
-    HuggingFaceClient（类）
-        - 功能：HuggingFace Papers 语义搜索客户端，解析 JSON 响应为统一数据模型
-        - 关键属性：_client (SouWenHttpClient) HTTP 客户端, _limiter (TokenBucketLimiter)
-                   限流器（5 req/s，保守设置）
-
-    _parse_paper(paper: dict) -> PaperResult
-        - 功能：将 HuggingFace API 返回的单篇论文 JSON 转换为 PaperResult
-        - 输入：HuggingFace API 响应中单个 paper 对象（含 paper 子键）
-        - 输出：统一的 PaperResult 模型，raw 中含 upvotes 和 arxiv_id
-
-    search(query: str, top_n: int = 10) -> SearchResponse
-        - 功能：使用 HuggingFace 语义搜索查找论文
-        - 输入：query 搜索查询词（支持自然语言或关键词），top_n 返回数量
-        - 输出：SearchResponse 包含结果列表及分页信息
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-"""
+"""HuggingFace Papers API 客户端"""
 
 from __future__ import annotations
 

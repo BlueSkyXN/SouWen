@@ -188,8 +188,8 @@ async def test_get_browser_pool_reuses_per_loop_and_resolved_proxy(monkeypatch):
         "souwen.common_runtime.provider_support.browser_pool.get_config", lambda: cfg
     )
 
-    pool1 = get_browser_pool(source_name="google_patents", max_pages=1)
-    pool2 = get_browser_pool(source_name="google_patents", max_pages=1)
+    pool1 = get_browser_pool(source_name="baidu", max_pages=1)
+    pool2 = get_browser_pool(source_name="baidu", max_pages=1)
 
     assert pool1 is pool2
     assert pool1.key.proxy == "http://global-proxy.example:8080"

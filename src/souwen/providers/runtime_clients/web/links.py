@@ -1,25 +1,4 @@
-"""网页链接提取工具
-
-文件用途：
-    从指定 URL 的页面中提取所有 <a href> 链接，返回结构化的链接列表。
-    支持 SSRF 过滤、相对 URL 解析、<base href> 处理、URL 前缀过滤。
-
-函数清单：
-    extract_links(url, base_url_filter, limit) -> LinkExtractionResult
-        - 功能：抓取页面并提取链接
-
-    LinkItem(BaseModel)
-        - url: 绝对 URL
-        - text: 链接文本
-
-    LinkExtractionResult(BaseModel)
-        - source_url: 源页面 URL
-        - final_url: 最终 URL (重定向后)
-        - links: list[LinkItem]
-        - total: int
-        - filtered_count: int (被 SSRF/前缀过滤掉的数量)
-        - error: str | None
-"""
+"""网页链接提取工具"""
 
 from __future__ import annotations
 

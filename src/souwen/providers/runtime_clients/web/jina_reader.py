@@ -1,24 +1,4 @@
-"""Jina Reader 内容抓取客户端
-
-文件用途：
-    通过 Jina Reader API (https://r.jina.ai/<url>) 抓取网页内容并转换为
-    Markdown 格式。免费使用（~20 RPM），可通过 JINA_API_KEY 提升额度（~200 RPM）。
-
-函数/类清单：
-    JinaReaderClient（类）
-        - 功能：Jina Reader 内容抓取客户端
-        - 继承：SouWenHttpClient
-        - 关键属性：
-            ENGINE_NAME = "jina_reader"
-            BASE_URL    = "https://r.jina.ai"
-        - 主要方法：
-            * fetch(url) → FetchResult
-            * fetch_batch(urls, max_concurrency) → FetchResponse
-
-模块依赖：
-    - asyncio: 并发控制
-    - logging: 日志记录
-"""
+"""Jina Reader 内容抓取客户端"""
 
 from __future__ import annotations
 

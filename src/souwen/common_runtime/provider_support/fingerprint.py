@@ -1,46 +1,4 @@
-"""浏览器指纹管理
-
-文件用途：
-    提供真实浏览器请求头和 TLS 指纹模拟，用于突破反爬检测（JA3、UA、Sec-CH-UA 等）。
-    支持多个浏览器版本和操作系统组合，增加指纹多样性。
-
-函数/类清单：
-    BrowserFingerprint（类）
-        - 功能：单次请求的浏览器指纹生成器
-        - 方法：
-          * __init__(chrome_version: dict|None) — 初始化指纹，可指定浏览器版本
-          * user_agent (property) → str — 返回完整 User-Agent 字符串
-          * impersonate (property) → str — 返回 curl_cffi impersonate 参数（TLS 指纹）
-          * headers (property) → dict[str,str] — 返回完整浏览器请求头（含 Sec-CH-UA 系列）
-          * rotate() → BrowserFingerprint — 轮换到新的指纹实例
-
-    get_default_fingerprint() -> BrowserFingerprint
-        - 功能：获取确定的默认指纹（Chrome 最新版本）
-        - 用途：需要稳定指纹时使用
-
-    get_random_fingerprint() -> BrowserFingerprint
-        - 功能：获取随机指纹，支持多浏览器/操作系统组合
-        - 用途：模拟不同客户端，提高反爬规避能力
-
-    get_api_headers(email=None, api_key=None, bearer_token=None) -> dict[str, str]
-        - 功能：[已修正] 构造 API 调用（非爬虫场景）的请求头，使用规范的 SouWen UA
-        - 入参：email → From 头；api_key → X-API-Key；bearer_token → Authorization: Bearer
-
-关键变量：
-    _CHROME_VERSIONS: list[dict]
-        - 浏览器版本库，包含 Chrome/Edge/Safari 版本
-        - 关键字段：version (版本号), ua (User-Agent 字符串),
-                   sec_ch_ua (Sec-CH-UA 头值), impersonate (curl_cffi 指纹)
-        - 注意：curl_cffi 最高仅支持 chrome124 的 TLS 指纹，UA 用新版无碍
-
-    _PLATFORMS: list[dict]
-        - 操作系统指纹库（与 Chrome 版本随机组合）
-        - 关键字段：platform (Sec-CH-UA-Platform 值), ua_os (User-Agent 中的 OS 部分)
-
-模块依赖：
-    - random: 随机选择浏览器和操作系统
-    - souwen.__version__: SouWen API User-Agent 构建
-"""
+"""浏览器指纹管理"""
 
 from __future__ import annotations
 

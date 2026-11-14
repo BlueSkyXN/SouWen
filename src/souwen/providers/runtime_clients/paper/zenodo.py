@@ -1,39 +1,4 @@
-"""Zenodo API 客户端
-
-官方文档: https://developers.zenodo.org/
-鉴权: 可选 Personal Access Token (Authorization: Bearer ...)
-注册: https://zenodo.org/account/settings/applications/tokens/new/
-
-文件用途：Zenodo（CERN 开放科学仓库）出版物搜索客户端，覆盖 preprint、
-期刊文章、技术报告等开放获取的科研出版物，并附带可下载文件链接。
-
-函数/类清单：
-    ZenodoClient（类）
-        - 功能：Zenodo records API 搜索客户端，仅检索 type=publication 类资源
-        - 关键属性：access_token (str|None) 可选个人访问令牌,
-                   _client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 令牌桶限流器（5 req/s）
-
-    _strip_html(text: str) -> str
-        - 功能：剥离描述字段中的 HTML 标签
-        - 输入：可能含 HTML 标签的字符串
-        - 输出：纯文本字符串
-
-    _parse_record(record: dict) -> PaperResult
-        - 功能：将 Zenodo record 对象转换为统一的 PaperResult 数据模型
-        - 输入：Zenodo API 单条记录（含 metadata、files、links）
-        - 输出：PaperResult，pdf_url 取首个 .pdf 文件的下载链接
-
-    search(query: str, size: int = 10) -> SearchResponse
-        - 功能：按关键词搜索 Zenodo 出版物（按最新发布排序）
-        - 输入：query 检索关键词, size 返回条数
-        - 输出：SearchResponse 包含结果列表及总数
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult, SearchResponse: 统一论文数据模型
-"""
+"""Zenodo API 客户端"""
 
 from __future__ import annotations
 

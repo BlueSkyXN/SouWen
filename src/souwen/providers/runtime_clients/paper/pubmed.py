@@ -1,43 +1,4 @@
-"""PubMed / NCBI E-utilities 客户端
-
-官方文档: https://www.ncbi.nlm.nih.gov/books/NBK25501/
-鉴权: 可选 API Key，无 Key 限流 3 req/s，有 Key 10 req/s
-搜索模式: 两步式 esearch → efetch
-返回: XML
-
-文件用途：PubMed / NCBI E-utilities 生物医学文献搜索客户端。
-
-函数/类清单：
-    PubMedClient（类）
-        - 功能：PubMed 两步搜索客户端（esearch 获取 ID，efetch 获取详情）
-        - 关键属性：api_key (str|None) NCBI API Key, _client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（无 Key: 3 req/s, 有 Key: 10 req/s）
-
-    _common_params() -> dict
-        - 功能：构建公共请求参数（包含 API Key 若已配置）
-        - 输出：请求参数字典
-
-    _parse_article(article_el: ET.Element) -> PaperResult
-        - 功能：将 PubmedArticle XML 元素转换为 PaperResult
-        - 输入：article_el <PubmedArticle> XML 元素
-        - 输出：统一的 PaperResult 模型，包含 PMID、MeSH 关键词等
-
-    search(query: str, retmax: int = 10, retstart: int = 0) -> SearchResponse
-        - 功能：搜索 PubMed 文献（两步：esearch → efetch）
-        - 输入：query PubMed 检索式（支持 MeSH 等高级语法），retmax 返回条数，
-               retstart 起始偏移
-        - 输出：SearchResponse 包含搜索结果及分页信息
-
-    fetch(pmids: list[str]) -> list[PaperResult]
-        - 功能：根据 PMID 列表批量获取论文详情（efetch 阶段）
-        - 输入：pmids PubMed ID 列表
-        - 输出：PaperResult 列表，解析失败的条目会被跳过并记录日志
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - defusedxml.ElementTree: 安全 XML 解析
-"""
+"""PubMed / NCBI E-utilities 客户端"""
 
 from __future__ import annotations
 

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date
 
 from souwen.providers.runtime_clients.models import (
     Author,
     PaperResult,
-    PatentResult,
     SearchResponse,
 )
 
@@ -83,14 +81,4 @@ def batch_one_paper(provider_id: str) -> PaperResult:
     )
 
 
-def google_patent() -> PatentResult:
-    return PatentResult(
-        source="google_patents",
-        patent_id="US1234567A",
-        title="Google Patents conformance record",
-        publication_date=date(2026, 1, 2),
-        source_url="https://patents.google.com/patent/US1234567A/en",
-    )
-
-
-__all__ = ["batch_one_paper", "google_patent", "response"]
+__all__ = ["batch_one_paper", "response"]

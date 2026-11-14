@@ -1,27 +1,4 @@
-"""稀土掘金搜索客户端
-
-文件用途：
-    稀土掘金（juejin.cn）搜索客户端。通过掘金内部搜索 API
-    检索技术文章，无需 API Key。返回结果统一映射为 SouWen
-    的 WebSearchResult 模型。
-
-    本客户端继承 BaseScraper —— 目的是复用其 TLS 指纹伪装、
-    浏览器级请求头、自适应限速与自动重试能力。
-
-函数/类清单：
-    JuejinClient（类）
-        - 功能：稀土掘金搜索客户端
-        - 继承：BaseScraper
-        - 关键属性：ENGINE_NAME = "juejin",
-                  BASE_URL = "https://api.juejin.cn/search_api/v1/search"
-        - 主要方法：search(query, max_results) -> WebSearchResponse
-
-模块依赖：
-    - logging: 日志记录
-    - re: HTML 标签清理
-    - souwen.providers.runtime_clients.models: str, WebSearchResult, WebSearchResponse
-    - souwen.common_runtime.provider_support.scraper.base: BaseScraper
-"""
+"""稀土掘金搜索客户端"""
 
 from __future__ import annotations
 

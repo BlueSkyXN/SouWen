@@ -1,43 +1,4 @@
-"""SearXNG 自部署隐私元搜索引擎
-
-文件用途：
-    SearXNG 搜索客户端。SearXNG 是隐私优先的开源元搜索引擎，
-    聚合多个搜索引擎结果，无用户追踪，需用户自行部署实例。
-
-函数/类清单：
-    SearXNGClient（类）
-        - 功能：SearXNG JSON API 客户端，通过 HTTP 调用自部署实例
-        - 继承：SouWenHttpClient（HTTP 客户端基类）
-        - 关键属性：ENGINE_NAME = "searxng", instance_url 自部署实例地址
-        - 主要方法：search(query, max_results, ...) -> WebSearchResponse
-
-    SearXNGClient.__init__(instance_url=None)
-        - 功能：初始化 SearXNG 搜索客户端，验证实例 URL 可用性
-        - 输入：instance_url (str|None) 实例地址，默认从 SOUWEN_SEARXNG_URL 读取
-        - 异常：ConfigError 未提供实例 URL 时抛出
-
-    SearXNGClient.search(query, max_results=20, engines=None, ...) -> WebSearchResponse
-        - 功能：通过 SearXNG JSON API 执行搜索
-        - 输入：query 搜索词, max_results 最大结果数,
-                engines 指定引擎（逗号分隔）, categories 分类,
-                language 语言
-        - 输出：WebSearchResponse 包含搜索结果
-        - 异常：ParseError API 响应解析失败时抛出
-
-模块依赖：
-    - logging: 日志记录
-    - typing: 类型注解
-    - souwen.config: 获取实例 URL 配置
-    - souwen.common_runtime.provider_support.exceptions: ConfigError, ParseError 异常
-    - souwen.common_runtime.provider_support.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.providers.runtime_clients.models: str, WebSearchResult, WebSearchResponse 数据模型
-
-技术要点：
-    - API 端点：GET /search?format=json，通过 format=json 获取 JSON 响应
-    - 支持指定后端引擎（如 google,bing,duckduckgo）
-    - 每条结果自带 engine 字段标识来源引擎
-    - total_results 优先使用 API 返回的 number_of_results
-"""
+"""SearXNG 自部署隐私元搜索引擎"""
 
 from __future__ import annotations
 

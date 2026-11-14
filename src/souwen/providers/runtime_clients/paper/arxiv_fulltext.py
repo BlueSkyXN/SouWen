@@ -1,26 +1,4 @@
-"""arXiv 论文全文获取模块
-
-从 ``https://arxiv.org/html/{paper_id}`` 获取 HTML 版本，并用 BeautifulSoup
-提取纯文本（剥离 nav/header/footer/script/style）。不解析或下载 PDF。
-
-文件用途：为 SouWen 提供论文全文获取能力，支持后续的全文分析和知识提取。
-
-函数/类清单：
-    ArxivFulltextClient（类，async context manager）
-        - 功能：arXiv HTML 全文抓取
-        - 关键属性：_client (SouWenHttpClient), _limiter (TokenBucketLimiter,
-                   1 req / 3 sec，与 ArxivClient 同步)
-
-    get_fulltext(paper_id: str) -> FetchResult
-        - 功能：按 paper_id 获取论文全文
-        - 输入：paper_id 形如 ``2301.00001`` 或带版本号 ``2301.00001v2``
-        - 输出：FetchResult，content 字段为 Markdown 或纯文本
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器（与 arxiv.py 共享 3s 间隔）
-    - BeautifulSoup4: HTML 解析（核心依赖）
-"""
+"""arXiv 论文全文获取模块"""
 
 from __future__ import annotations
 

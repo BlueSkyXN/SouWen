@@ -1,39 +1,4 @@
-"""内置网页内容抓取客户端
-
-文件用途：
-    基于 SouWen 现有 HTTP 基础设施（httpx / curl_cffi）和 trafilatura 的内置
-    网页内容抓取客户端。继承 BaseScraper 获得 TLS 指纹伪装、WARP 代理、
-    自适应退避等反反爬能力，使用 trafilatura 提取正文并转换为 Markdown。
-
-    零外部服务依赖，无需 API Key，支持 WARP 代理加速。
-
-函数/类清单：
-    BuiltinFetcherClient（类）
-        - 功能：内置网页内容抓取客户端
-        - 继承：BaseScraper（爬虫基类，提供 TLS 指纹 / WARP / 退避）
-        - 关键属性：
-            ENGINE_NAME   = "builtin_fetch"
-            PROVIDER_NAME = "builtin"
-        - 主要方法：
-            * fetch(url) → FetchResult
-            * fetch_batch(urls, max_concurrency, timeout) → FetchResponse
-
-    _extract_with_trafilatura(html, url) → dict
-        - 功能：使用 trafilatura 提取正文、标题、作者、日期等元数据
-        - 回退：trafilatura 失败时降级到 html2text / 纯文本
-
-    _extract_fallback(html) → str
-        - 功能：trafilatura 不可用时的简单 HTML→text 提取
-
-模块依赖：
-    - asyncio: 并发控制
-    - logging: 日志记录
-    - souwen.common_runtime.provider_support.scraper.base: BaseScraper 基类
-    - souwen.providers.runtime_clients.models: FetchResult, FetchResponse 数据模型
-    - trafilatura（可选）: HTML 正文提取 + Markdown 转换
-    - html2text（可选）: HTML→Markdown 回退方案
-    - protego（可选）: robots.txt 解析（启用 respect_robots_txt 时使用）
-"""
+"""内置网页内容抓取客户端"""
 
 from __future__ import annotations
 

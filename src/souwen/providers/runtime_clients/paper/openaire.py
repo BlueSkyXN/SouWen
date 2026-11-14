@@ -1,48 +1,4 @@
-"""OpenAIRE Research Products API 客户端
-
-官方端点: https://api.openaire.eu/search/researchProducts
-鉴权: 可选 Bearer Token（注册：https://aai.openaire.eu/）
-限流: 保守 3 req/s（匿名访问限制更紧）
-返回: JSON（format=json，结构嵌套且使用 ``$`` 与 ``@classid`` 等键名）
-
-文件用途：OpenAIRE 欧盟开放科研聚合平台搜索客户端，覆盖论文、
-            预印本、数据集等多类研究成果，整合自欧盟各国机构仓储。
-
-参考来源：OpenAIRE Search API 官方文档
-         https://graph.openaire.eu/docs/apis/search-api/research-products
-
-函数/类清单：
-    OpenAireClient（类）
-        - 功能：OpenAIRE 检索客户端，解析嵌套 JSON 响应为统一数据模型
-        - 关键属性：api_key (str|None) 可选 API Key,
-                   _client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（3 req/s）
-
-    _extract_text(obj) -> str
-        - 功能：从 OpenAIRE ``{"$": "text"}`` 嵌套结构中安全提取文本
-        - 输入：dict / str / 任意类型
-        - 输出：解析出的字符串（缺失返回空串）
-
-    _as_list(value) -> list
-        - 功能：OpenAIRE 字段在单值与多值时类型不一致，统一转 list
-        - 输入：任意值
-        - 输出：list（None → []，单值 → [value]）
-
-    _parse_result(result: dict) -> PaperResult
-        - 功能：将 OpenAIRE 单条 result 转换为 PaperResult
-        - 输入：OpenAIRE response.results.result 的单个元素
-        - 输出：统一的 PaperResult 模型
-
-    search(query: str, size: int = 10) -> SearchResponse
-        - 功能：按关键词搜索 OpenAIRE 研究成果
-        - 输入：query 关键词, size 每页条数
-        - 输出：SearchResponse 包含结果列表及分页信息
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult: 统一论文数据模型
-"""
+"""OpenAIRE Research Products API 客户端"""
 
 from __future__ import annotations
 

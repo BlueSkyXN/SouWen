@@ -1,38 +1,4 @@
-"""Europe PMC API 客户端
-
-官方文档: https://europepmc.org/RestfulWebService
-鉴权: 无需 Key
-限流: 宽松，建议保守 ~5 req/s
-返回: JSON（resultList.result[]）
-
-文件用途：Europe PMC（European PubMed Central）生物医学/生命科学文献搜索客户端，
-聚合 PubMed、PMC、AGRICOLA 等多源开放获取论文，并提供全文/PDF 链接、引用计数、
-开放获取标识等丰富元数据，免 Key 即用。
-
-参考来源：Europe PMC RESTful Web Service v8
-         https://www.ebi.ac.uk/europepmc/webservices/rest/search
-
-函数/类清单：
-    EuropePmcClient（类）
-        - 功能：Europe PMC 搜索客户端，解析 JSON 响应为统一数据模型
-        - 关键属性：_client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（5 req/s，保守设置）
-
-    _parse_result(item: dict) -> PaperResult
-        - 功能：将 Europe PMC 单条 result 转换为 PaperResult
-        - 输入：Europe PMC API 响应 resultList.result[] 中的单条记录
-        - 输出：统一的 PaperResult 模型，raw 中含 PMID/PMCID、关键词、开放获取标识等
-
-    search(query: str, page_size: int = 10) -> SearchResponse
-        - 功能：使用 Europe PMC 全文检索查找论文
-        - 输入：query 检索式（支持字段限定如 PUB_YEAR、HAS_FT、OPEN_ACCESS、SRC）,
-               page_size 返回条数（API 上限 1000）
-        - 输出：SearchResponse 包含结果列表及分页信息
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-"""
+"""Europe PMC API 客户端"""
 
 from __future__ import annotations
 

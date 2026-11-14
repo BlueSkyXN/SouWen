@@ -1,37 +1,4 @@
-"""HAL (Hyper Articles en Ligne) API 客户端
-
-官方端点: https://api.archives-ouvertes.fr/search/
-鉴权: 无需 Key
-限流: 宽松，无明确硬限制（保守 5 req/s）
-返回: JSON（Solr 响应，多数字段为数组）
-
-文件用途：HAL 法国开放档案搜索客户端，覆盖法国及国际机构的论文、
-            预印本、博士论文等开放获取学术成果，基于 Solr 检索引擎。
-
-参考来源：HAL 官方 API 文档 https://api.archives-ouvertes.fr/docs/search
-
-函数/类清单：
-    HalClient（类）
-        - 功能：HAL Solr 检索客户端，解析 JSON 响应为统一数据模型
-        - 关键属性：_client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（5 req/s）
-
-    _parse_doc(doc: dict) -> PaperResult
-        - 功能：将 HAL Solr 返回的单条 doc 转换为 PaperResult
-        - 输入：HAL response.docs 中的单条文献对象
-        - 输出：统一的 PaperResult 模型
-        - 注意：HAL 多数字段为数组（含 title_s/abstract_s），均取第一个元素
-
-    search(query: str, rows: int = 10) -> SearchResponse
-        - 功能：使用 Solr 查询语法搜索 HAL 文献库
-        - 输入：query Solr 查询串, rows 返回条数
-        - 输出：SearchResponse 包含结果列表及分页信息
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult: 统一论文数据模型
-"""
+"""HAL (Hyper Articles en Ligne) API 客户端"""
 
 from __future__ import annotations
 

@@ -1,27 +1,4 @@
-"""YouTube Data API v3 全功能客户端
-
-文件用途：
-    YouTube Data API v3 客户端，提供视频搜索（含分页）、热门视频、
-    视频详情、字幕提取等功能。需要 API Key（通过配置字段 youtube_api_key
-    或环境变量 YOUTUBE_API_KEY 提供），无 Key 时客户端初始化会抛出
-    ConfigError 以便调度层（integration_type=official_api）跳过该数据源。
-
-类清单：
-    VideoDetail — 视频详情数据类（含统计和时长）
-    YouTubeClient — 完整 YouTube API 客户端
-
-方法清单：
-    search() — 视频搜索（支持分页、日期/地区/语言/频道过滤、统计信息增强）
-    get_trending() — 热门视频（按地区/分类）
-    get_video_details() — 批量获取视频详情
-    get_transcript() — 提取视频字幕文本
-
-配额说明：
-    - 默认每日 10,000 单位
-    - search.list: 100 单位/次
-    - videos.list: 1 单位/次
-    - 多页搜索消耗 = 页数 × 100
-"""
+"""YouTube Data API v3 全功能客户端"""
 
 from __future__ import annotations
 

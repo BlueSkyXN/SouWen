@@ -1,48 +1,4 @@
-"""readability-lxml 网页内容抓取客户端
-
-文件用途：
-    基于 SouWen 现有 HTTP 基础设施（httpx / curl_cffi）和 readability-lxml 的
-    网页内容抓取客户端。继承 BaseScraper 获得 TLS 指纹伪装、WARP 代理、
-    自适应退避等反反爬能力，使用 Mozilla Readability 算法提取正文，
-    再通过 markdownify / html2text 转换为 Markdown。
-
-    与 builtin（trafilatura）使用的是不同算法 —— Readability 在某些
-    博客 / 新闻 / 论坛页面上效果更好，可作为 trafilatura 失败时的备选。
-    零外部服务依赖，无需 API Key，支持 WARP 代理加速。
-
-函数/类清单：
-    ReadabilityFetcherClient（类）
-        - 功能：使用 Readability 算法的网页抓取客户端
-        - 继承：BaseScraper（爬虫基类，提供 TLS 指纹 / WARP / 退避）
-        - 关键属性：
-            ENGINE_NAME   = "readability"
-            PROVIDER_NAME = "readability"
-        - 主要方法：
-            * fetch(url) → FetchResult
-            * fetch_batch(urls, max_concurrency, timeout) → FetchResponse
-
-    _extract_with_readability(html, url) → dict
-        - 功能：在线程池中调用同步的 Readability + markdownify 完成提取
-        - 回退：markdownify 缺失时使用 html2text；再缺失则降级 _html_extract
-
-模块依赖：
-    - asyncio: 异步并发与 to_thread 转同步
-    - logging: 日志记录
-    - souwen.common_runtime.provider_support.exceptions: ConfigError（依赖缺失时抛出）
-    - souwen.common_runtime.provider_support.scraper.base: BaseScraper 基类
-    - souwen.providers.runtime_clients.models: FetchResult, FetchResponse 数据模型
-    - readability-lxml（必需）: Mozilla Readability HTML 正文提取
-    - markdownify（可选）: HTML→Markdown 首选方案
-    - html2text（可选）: HTML→Markdown 回退方案
-    - souwen.providers.runtime_clients.web._html_extract: 最终回退方案
-
-技术要点：
-    - readability-lxml 仅做正文提取，HTTP 抓取仍走 BaseScraper
-      （获得 TLS 指纹伪装、WARP 代理、自适应退避等能力）
-    - readability.Document 是同步阻塞调用，使用 asyncio.to_thread 移出事件循环
-    - 手动跟踪重定向并在每跳做 SSRF 校验（与 builtin 一致）
-    - 内容质量校验：长度 ≥ 50 字符、词数 ≥ 10（CJK aware）
-"""
+"""readability-lxml 网页内容抓取客户端"""
 
 from __future__ import annotations
 

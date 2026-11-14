@@ -1,16 +1,4 @@
-"""core/concurrency.py — 并发度信号量（per-event-loop）
-
-实现（D12）：
-  用 `WeakKeyDictionary[AbstractEventLoop, Semaphore]` 存储 per-loop Semaphore。
-
-权衡（v1-初步定义 §4.2）：
-  - asyncio.Semaphore 内部会绑定创建时的 event loop；跨 loop 使用会炸。
-  - ContextVar 是上下文（async task）级别的一致性，**不跨 loop 隔离**；
-    在 `asyncio.new_event_loop()` 场景下会把老 loop 的 Semaphore 漏到新 loop。
-  - WeakKeyDictionary 以 loop 为 key，与 Semaphore 的隐式 loop 绑定保持一致；
-    loop 被 GC 后字典项自动清理，不内存泄漏。
-  - 不依赖 AbstractEventLoop 的未定义属性，不需 type: ignore。
-"""
+"""core/concurrency.py — 并发度信号量（per-event-loop）"""
 
 from __future__ import annotations
 

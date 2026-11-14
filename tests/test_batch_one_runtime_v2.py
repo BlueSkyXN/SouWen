@@ -20,7 +20,7 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 from souwen.server import v2_runtime as runtime_module
-from tests.support.provider_v2_batch_one import batch_one_paper, google_patent, response
+from tests.support.provider_v2_batch_one import batch_one_paper, response
 
 
 _SEARCH_CLIENT_GLOBALS = {
@@ -90,7 +90,7 @@ def _context(value: str) -> RequestContext:
 def _fake_search_client(provider_id, calls, closed):
     result = response(
         provider_id,
-        google_patent() if provider_id == "google_patents" else batch_one_paper(provider_id),
+        batch_one_paper(provider_id),
     )
 
     class Client:
@@ -227,7 +227,7 @@ def test_every_batch_one_search_factory_constructs_dispatches_and_closes(monkeyp
     )
 
     for provider_id in _SEARCH_CLIENT_GLOBALS:
-        domain = "patent" if provider_id == "google_patents" else "paper"
+        domain = "paper"
         page = asyncio.run(
             runtime.services.search.search(
                 SearchRequest(

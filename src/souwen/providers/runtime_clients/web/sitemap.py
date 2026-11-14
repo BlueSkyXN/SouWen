@@ -1,30 +1,4 @@
-"""Sitemap.xml 解析器
-
-文件用途：
-    解析网站的 sitemap.xml（含 sitemap index 和 gzip 压缩），
-    提取 URL 列表用于爬虫 seed 或站点审计。
-    支持从 robots.txt 自动发现 sitemap 地址。
-
-函数/类清单：
-    SitemapEntry(BaseModel)
-        - loc: URL 地址
-        - lastmod: 最后修改日期
-        - changefreq: 更新频率
-        - priority: 优先级
-
-    SitemapResult(BaseModel)
-        - root_url: 站点根 URL
-        - entries: list[SitemapEntry]
-        - total: int
-        - sitemaps_parsed: int
-        - errors: list[str]
-
-    parse_sitemap(url) -> SitemapResult
-        - 解析单个 sitemap URL
-
-    discover_sitemap(root_url) -> SitemapResult
-        - 从 robots.txt / 常见路径自动发现并解析 sitemap
-"""
+"""Sitemap.xml 解析器"""
 
 from __future__ import annotations
 

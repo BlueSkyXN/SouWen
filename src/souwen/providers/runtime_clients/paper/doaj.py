@@ -1,34 +1,4 @@
-"""DOAJ (Directory of Open Access Journals) API 客户端
-
-官方端点: https://doaj.org/api/search/articles/{query}
-鉴权: 可选 API Key (X-API-Key Header) — 无 Key 也可使用，仅影响限流
-注册: https://doaj.org/account/register
-
-文件用途：DOAJ 开放获取期刊文章搜索客户端，覆盖全球开放获取期刊
-论文元数据。免费可用，无需 Key，配置 Key 后限流更宽松。
-
-函数/类清单：
-    DoajClient（类）
-        - 功能：DOAJ 开放获取文章搜索客户端，解析 bibjson 响应为统一数据模型
-        - 关键属性：api_key (str|None) 可选 API 密钥, _client (SouWenHttpClient)
-                   HTTP 客户端, _limiter (TokenBucketLimiter) 令牌桶限流器
-                   （有 Key 时 ~2 req/s，无 Key 时 ~1 req/s）
-
-    _parse_result(item: dict) -> PaperResult
-        - 功能：将 DOAJ API 返回的单条 bibjson 文章转换为统一 PaperResult
-        - 输入：DOAJ API 响应中单条结果对象（含 bibjson 子键）
-        - 输出：统一的 PaperResult 模型，raw 中保留 keywords、subject、issn 等
-
-    search(query: str, page_size: int = 10, page: int = 1) -> SearchResponse
-        - 功能：按关键词查询 DOAJ 文章索引
-        - 输入：query 检索关键词, page_size 每页条数, page 当前页码
-        - 输出：SearchResponse 包含结果列表、总数、分页信息
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult, SearchResponse: 统一论文数据模型
-"""
+"""DOAJ (Directory of Open Access Journals) API 客户端"""
 
 from __future__ import annotations
 

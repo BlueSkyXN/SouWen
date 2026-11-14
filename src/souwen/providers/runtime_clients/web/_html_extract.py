@@ -1,22 +1,4 @@
-"""共享 HTML → Markdown/Text 提取工具
-
-文件用途：
-    为返回原始 HTML 的抓取 API（如 ScrapingBee、ZenRows、ScraperAPI）
-    提供统一的 HTML 内容提取与 Markdown 转换能力。
-
-    提取优先级：trafilatura > html2text > 正则剥离（零外部依赖）。
-
-函数清单：
-    extract_from_html(html, url) -> dict
-        - 功能：将原始 HTML 提取为 Markdown/Text 并返回结构化元数据
-        - 输入：html (str) 原始 HTML, url (str) 源页面 URL
-        - 输出：包含 content, title, author, date, content_format 等的字典
-
-模块依赖：
-    - re: 正则表达式（回退提取）
-    - trafilatura（可选）: HTML 正文提取 + Markdown 转换
-    - html2text（可选）: HTML→Markdown 回退
-"""
+"""共享 HTML → Markdown/Text 提取工具"""
 
 from __future__ import annotations
 

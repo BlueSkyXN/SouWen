@@ -1,23 +1,4 @@
-"""通用解析工具
-
-文件用途：
-    提供跨数据源复用的宽松解析器，优先容错设计：
-    接受 None、空串、非法格式时返回 None 而非抛异常，
-    记录 debug 日志但不警告，避免填充日志。
-
-函数清单：
-    safe_parse_date(value) -> date | None
-        - 功能：宽松解析日期字符串/对象，支持多种格式
-        - 入参：value 任意输入（str|date|datetime|None 等）
-        - 出参：解析成功返回 date；非法或空值返回 None
-        - 支持格式：None/空字符串 → None; date/datetime 对象;
-                   ISO 8601 格式（YYYY、YYYY-MM、YYYY-MM-DD、带时区部分）
-        - 关键：失败不抛异常，debug 记录便于排查
-
-模块依赖：
-    - datetime: date/datetime 类型
-    - logging: debug 级别日志
-"""
+"""通用解析工具"""
 
 from __future__ import annotations
 

@@ -1,41 +1,4 @@
-"""IACR ePrint 密码学预印本搜索客户端（实验性 HTML 爬虫）
-
-官方端点: https://eprint.iacr.org/search?q={query}
-鉴权: 无需 Key
-限流: 0.5 req/s（保守，避免对学术小站造成压力）
-返回: HTML 页面（使用 BeautifulSoup4 + lxml 解析）
-
-文件用途：
-    国际密码学研究协会 (IACR) ePrint 预印本归档搜索客户端。
-    密码学领域权威预印本来源，covers crypto / security / theory 等方向。
-    属于 **实验性 (experimental)** 数据源——通过 HTML 抓取实现，
-    一旦 IACR 调整页面结构（CSS class / DOM 层级）即可能失效。
-
-设计要点：
-    - 仅请求一次搜索页，不再二次抓取每篇论文详情，节省请求配额。
-    - 解析容错：单个结果块解析失败时跳过，不影响整体响应。
-    - paper_id 形如 "2025/1014"，年份直接来自路径段第一段。
-
-函数/类清单：
-    IacrClient（类）
-        - 功能：IACR ePrint 搜索客户端（实验性，HTML 抓取）
-        - 关键属性：_client (SouWenHttpClient), _limiter (TokenBucketLimiter, 0.5 rps)
-
-    _parse_result_block(block) -> PaperResult | None
-        - 功能：解析单个搜索结果 HTML 块为 PaperResult，失败返回 None
-        - 输入：BeautifulSoup Tag / NavigableString
-        - 输出：PaperResult 或 None（解析失败时静默跳过）
-
-    search(query: str, max_results: int = 10) -> SearchResponse
-        - 功能：搜索 IACR ePrint 归档
-        - 输入：query 关键词，max_results 最大返回数
-        - 输出：SearchResponse 包含 PaperResult 列表
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-    - bs4 / lxml: HTML 解析
-"""
+"""IACR ePrint 密码学预印本搜索客户端（实验性 HTML 爬虫）"""
 
 from __future__ import annotations
 

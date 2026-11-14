@@ -1,47 +1,4 @@
-"""Crossref API 客户端
-
-官方文档: https://api.crossref.org/swagger-ui/index.html
-鉴权: 无需 Key，mailto 进入 polite pool
-核心价值: 权威 DOI 元数据
-
-文件用途：Crossref 论文元数据客户端，提供权威的 DOI 元数据查询服务。
-
-函数/类清单：
-    CrossrefClient（类）
-        - 功能：Crossref 论文元数据搜索和查询客户端
-        - 关键属性：mailto (str|None) 联系邮箱（进入 polite pool 可提升限流阈值），
-                   _client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（~10 req/s）
-
-    _extract_publication_date(item: dict) -> tuple[int|None, str|None, str|None, str|None]
-        - 功能：从 Crossref work 项目中提取日期信息，支持多种日期格式
-        - 输入：item Crossref API 返回的 work JSON 对象
-        - 输出：(year, publication_date, raw_pub_date, date_precision) 元组
-        - 关键变量：date_parts (list) 日期分部（年月日）, precision (str) 精度级别
-
-    _parse_item(item: dict) -> PaperResult
-        - 功能：将 Crossref work item JSON 转换为 PaperResult 数据模型
-        - 输入：item Crossref API 返回的单条 work JSON
-        - 输出：统一的 PaperResult 模型，包含标题、作者、DOI、引用数等
-        - 异常：ParseError 关键字段缺失或格式异常时抛出
-
-    search(query: str, filters: dict|None, sort: str|None, rows: int, offset: int)
-           -> SearchResponse
-        - 功能：全文搜索 Crossref 论文库
-        - 输入：query 检索关键词, filters 过滤条件（如 from-pub-date），
-               sort 排序字段, rows 返回条数（最多 1000）, offset 分页偏移
-        - 输出：SearchResponse 包含结果列表及分页信息
-
-    get_by_doi(doi: str) -> PaperResult
-        - 功能：通过 DOI 获取论文详情
-        - 输入：doi 论文 DOI（如 "10.1038/s41586-021-03819-2"）
-        - 输出：PaperResult 模型
-        - 异常：NotFoundError 当 DOI 不存在时抛出
-
-模块依赖：
-    - SouWenHttpClient: 统一 HTTP 客户端
-    - TokenBucketLimiter: 令牌桶限流器
-"""
+"""Crossref API 客户端"""
 
 from __future__ import annotations
 
