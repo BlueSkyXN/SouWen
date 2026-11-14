@@ -13,7 +13,6 @@
 | `crossref` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `datacite` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `doaj` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
-| `duckduckgo_news` | PASS | 2/3 | [best-of-warp-on-off] only 0 valid items |
 | `eric` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `europepmc` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `figshare` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
@@ -32,10 +31,11 @@
 | `stackoverflow` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `wayback` | PASS | 2/3 | [best-of-warp-on-off] bad_gateway |
 | `wikipedia` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
+| `yahoo` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
 | `zenodo` | PASS | 3/3 | [best-of-warp-on-off] all probes valid |
-| `baidu` | WARN | 1/3 | [best-of-warp-on-off] gateway_timeout |
+| `baidu` | WARN | 1/3 | [best-of-warp-on-off] only 0 valid items |
 | `coolapk` | WARN | 1/3 | [best-of-warp-on-off] only 0 valid items |
+| `duckduckgo_news` | WARN | 1/3 | [best-of-warp-on-off] only 0 valid items |
 | `osti` | WARN | 1/3 | [best-of-warp-on-off] bad_gateway |
-| `yahoo` | WARN | 1/3 | [best-of-warp-on-off] gateway_timeout |
 | `brave` | FAIL | 0/3 | [best-of-warp-on-off] gateway_timeout |
 | `searxng` | FAIL | 0/3 | [best-of-warp-on-off] bad_gateway |
