@@ -72,33 +72,39 @@ class LiveReport:
 class _PinnedPlanner:
     """Planner that always answers with one fixed level (doctor --live).
 
-    记录请求过 plan 的主机：源声明的传输主机若从未出现，说明其客户端
-    不走出口阶梯，verdict 如实标注 used_level=None。
-    实现 BaseScraper 依赖的完整 planner 接口（effective_bounds/plan/
-    report_*），否则 _fetch 在 plan 之前就会 AttributeError。
+    记录每个主机实际拿到的级别（requested → actual）：请求 browser 但源
+    max=proxy 时实际执行 proxy，报告必须记实际值而非请求值。源声明的
+    传输主机若从未 plan，说明其客户端不走出口阶梯，verdict 如实标注
+    used_level=None。实现 BaseScraper 依赖的完整 planner 接口
+    （effective_bounds/plan/report_*）。
     """
 
     def __init__(self, level_name: str, proxy_provider) -> None:
         self.level_name = level_name
         self._proxy_provider = proxy_provider
         self.planned_hosts: set[str] = set()
+        # host → 实际执行的 EgressLevel；报告的 used_level 以此为准
+        self.actual_levels: dict[str, object] = {}
         self.program_errors: list[str] = []
 
     def effective_bounds(self, bounds):
         from souwen.common_runtime.egress.levels import EgressBounds, EgressLevel
 
         # 钳到源声明的范围内：请求比源 min 低的级别没有意义，
-        # 高于源 max 的级别说明该源本来就不允许（SKIP 语义在 doctor 层处理）。
+        # 高于源 max 的级别说明该源本来就不允许（降级如实记录）。
         pinned = parse_level(self.level_name)
         low = max(int(bounds.min_level), min(int(bounds.max_level), int(pinned)))
         high = min(int(bounds.max_level), max(int(bounds.min_level), int(pinned)))
         return EgressBounds(min_level=EgressLevel(low), max_level=EgressLevel(max(low, high)))
 
     def plan(self, host: str, bounds):
-        self.planned_hosts.add((host or "").lower().lstrip("."))
+        key = (host or "").lower().lstrip(".")
+        self.planned_hosts.add(key)
         pinned = parse_level(self.level_name)
         clamped = self.effective_bounds(bounds).clamp(pinned)
-        proxy = self._proxy_provider() if pinned.label == "proxy" and pinned is clamped else None
+        # 代理按实际执行级别解析：clamp 之后仍是 proxy 才提供代理
+        proxy = self._proxy_provider() if clamped.label == "proxy" else None
+        self.actual_levels[key] = clamped
         return _Decision(clamped, proxy, "doctor-pinned")
 
     def report_success(self, host, level) -> None:
@@ -225,10 +231,25 @@ async def _probe_fetch_targets(runtime: TargetRuntime, queries: dict) -> list[Le
                 ExecutionContext.with_timeout(30),
             )
             item = batch.items[0]
-            valid = item.status == "success" and bool((item.content or "").strip())
-            detail = (
-                "" if valid else str(getattr(getattr(item, "error", None), "code", "empty content"))
+            content = (item.content or "").strip()
+            # 与 census 冻结口径一致：≥500 字符且非验证/错误页（非仅非空）
+            from souwen.providers.runtime_clients.web._extractor_chain import (
+                looks_like_blocked_content,
             )
+
+            valid = bool(
+                item.status == "success"
+                and len(content) >= 500
+                and not looks_like_blocked_content(content[:4000], content)
+            )
+            if item.status == "success" and not valid:
+                detail = f"content too short or blocked ({len(content)} chars)"
+            else:
+                detail = (
+                    ""
+                    if valid
+                    else str(getattr(getattr(item, "error", None), "code", "empty content"))
+                )
             outcome = "PASS" if valid else "FAIL"
             used = getattr(item.content_metadata, "egress", None) if item.content_metadata else None
         except Exception as exc:
@@ -352,12 +373,24 @@ def run_live_census(levels: list[str], *, only: set[str] | None = None) -> list[
             return verdicts
 
         verdicts = asyncio.run(run_all())
-        planned = planner_module._planner.planned_hosts
+        planner = planner_module._planner
+        planned = planner.planned_hosts
+        actual_levels = planner.actual_levels
         for verdict in verdicts:
             verdict.level = level
+            if verdict.source.startswith("fetch:"):
+                # fetch 探测的 used_level 来自 ContentMetadata.egress（实际执行值）
+                continue
             host = (source_hosts.get(verdict.source) or "").lower().lstrip(".")
-            if host and host in planned:
-                verdict.used_level = level
+            actual = actual_levels.get(host)
+            if host and host in planned and actual is not None:
+                actual_label = getattr(actual, "label", str(actual))
+                verdict.used_level = actual_label
+                if actual_label != level:
+                    # 请求级别超出源声明范围被钳制——如实标注，不冒充通过
+                    verdict.detail = (verdict.detail + "; " if verdict.detail else "") + (
+                        f"requested {level} clamped to source ceiling {actual_label}"
+                    )
             else:
                 verdict.detail = (verdict.detail + "; " if verdict.detail else "") + (
                     "client bypasses egress ladder (pin not applied)"

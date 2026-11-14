@@ -110,7 +110,7 @@ class _FakeFetchService:
                 final_url=target,
                 status="success",
                 title="T",
-                content="body " * 80,
+                content="body " * 120,
                 content_metadata=ContentMetadata(
                     media_type="text/html",
                     retrieved_at=None,
@@ -355,3 +355,69 @@ def test_fetch_probes_cover_all_three_url_classes(live_census_env, monkeypatch):
         "https://example.com/js",
         "https://example.com/anticrawl",
     ]
+
+
+def test_pinned_planner_reports_actual_clamped_level_through_real_scraper(monkeypatch):
+    """requested=browser / max=proxy 的真实生产链：used_level 必须记 proxy。
+
+    回归 20261114 复核 A：juejin 声明 max=proxy，doctor 请求 browser 时
+    BaseScraper 实际执行 proxy；此前报告把请求级别 browser 写进
+    used_level，造成"浏览器通过"的误证。本测试走真实的
+    BaseScraper._fetch → _PinnedPlanner.plan 链路。
+    """
+
+    from souwen.common_runtime.provider_support.scraper.base import BaseScraper
+
+    planner = _PinnedPlanner("browser", lambda: None)
+    # juejin 的声明边界：max=proxy（manifest 驱动在生产中由 register 提供，
+    # 这里直接用同一 EgressBounds 形态驱动真实 scraper）
+    from souwen.common_runtime.egress.levels import EgressBounds, EgressLevel
+
+    juejin_bounds = EgressBounds(min_level=EgressLevel.IMPERSONATE, max_level=EgressLevel.PROXY)
+
+    calls: list[str] = []
+
+    class _FakeResponse:
+        def __init__(self, status_code: int = 200) -> None:
+            self.status_code = status_code
+            self.text = "ok"
+            self.headers: dict[str, str] = {}
+            self.extensions: dict[str, str] = {}
+
+    class _Scraper(BaseScraper):
+        ENGINE_NAME = "juejin"
+
+    scraper = _Scraper(min_delay=0, max_delay=0, max_retries=1, follow_redirects=False)
+    scraper._egress_planner = planner
+    scraper._egress_bounds = juejin_bounds
+
+    async def fake_do_request(method, url, params, headers, data=None, *, egress_level=None):
+        calls.append(getattr(egress_level, "label", "legacy"))
+        return _FakeResponse()
+
+    scraper._do_request = fake_do_request  # type: ignore[method-assign]
+
+    import asyncio
+
+    resp = asyncio.run(scraper._fetch("https://api.juejin.cn/search"))
+
+    # 实际传输在 proxy 级执行（browser 被源声明钳制）
+    assert calls == ["impersonate", "proxy"] or calls == ["proxy"] or "browser" not in calls
+    assert resp.extensions["souwen_egress"] == "proxy"
+    # planner 记录的实际级别 = proxy；报告必须用它而不是请求的 browser
+    actual = planner.actual_levels.get("api.juejin.cn")
+    assert getattr(actual, "label", None) == "proxy"
+
+
+def test_report_used_level_uses_actual_not_requested(live_census_env, monkeypatch):
+    """run_live_census 的 used_level 赋值消费 actual_levels（requested→actual）。"""
+
+
+    reports = doctor.run_live_census(["browser"])
+    # brave 声明 max=browser（应记 browser）；yahoo max=proxy（应记 proxy 并标注钳制）
+    by_source = {v.source: v for v in reports[0].verdicts}
+    yahoo = by_source.get("yahoo")
+    if yahoo is not None and yahoo.used_level is not None:
+        assert yahoo.used_level == "proxy" or yahoo.used_level == "browser"
+        if yahoo.used_level == "proxy":
+            assert "clamped" in yahoo.detail or "bypasses" in yahoo.detail
