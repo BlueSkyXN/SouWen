@@ -19,6 +19,10 @@ from pydantic import (
     model_validator,
 )
 
+# 出口阶梯顺序（与 common_runtime.egress.levels.EgressLevel 一致；此处为
+# manifest 层的独立字面量表，不 import 运行时模块以保持 registry 纯净）。
+_EGRESS_ORDER: tuple[str, ...] = ("direct", "impersonate", "proxy", "browser")
+
 
 _ID = re.compile(r"^[a-z][a-z0-9_-]{0,127}$")
 _SCHEMA_ID = re.compile(r"^[a-z][a-z0-9-]{0,127}$")
@@ -98,6 +102,9 @@ class NetworkDeclaration(_StrictManifestModel):
         "validated_public_target",
         "configured_self_hosted_endpoint",
     ] = "none"
+    # SPEC 5.2：源声明出口阶梯边界（起步级 / 允许的最高级）。
+    min_egress: Literal["direct", "impersonate", "proxy", "browser"] = "impersonate"
+    max_egress: Literal["direct", "impersonate", "proxy", "browser"] = "proxy"
     proxy_supported: StrictBool
     browser_required: StrictBool
 
@@ -107,6 +114,8 @@ class NetworkDeclaration(_StrictManifestModel):
             raise ValueError("duplicate egress host")
         if self.target_egress != "none" and self.egress_hosts:
             raise ValueError("configured target egress cannot declare fixed hosts")
+        if _EGRESS_ORDER.index(self.min_egress) > _EGRESS_ORDER.index(self.max_egress):
+            raise ValueError("min_egress must not exceed max_egress")
         return self
 
 

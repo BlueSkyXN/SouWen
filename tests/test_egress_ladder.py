@@ -18,13 +18,28 @@ from souwen.common_runtime.provider_support.exceptions import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _registered_manifest_bounds():
+    """把内置 manifest 的 min/max_egress 声明注入注册表（agent 门面启动前）。"""
+
+    from souwen.providers.catalog import register_manifest_egress_bounds
+
+    register_manifest_egress_bounds()
+
+
 def test_bounds_default_and_browser_capable() -> None:
+    # manifest 声明驱动（SPEC 5.2）：arxiv 声明 max=impersonate（proxy_supported=False
+    # 的源诚实化——它们从未被解析出代理）；baidu 声明 max=browser。
     default = egress_bounds_for("arxiv")
     assert default.min_level is EgressLevel.IMPERSONATE
-    assert default.max_level is EgressLevel.PROXY
+    assert default.max_level is EgressLevel.IMPERSONATE
 
     browser = egress_bounds_for("baidu")
     assert browser.max_level is EgressLevel.BROWSER
+
+    # 未声明/内部 id 回退默认边界（min=impersonate, max=proxy）
+    fallback = egress_bounds_for("not-a-source")
+    assert fallback.max_level is EgressLevel.PROXY
 
 
 def test_memory_starts_at_min_and_climbs_after_failure() -> None:
@@ -63,7 +78,7 @@ def test_planner_skips_unavailable_levels() -> None:
 
 def test_planner_uses_proxy_when_configured() -> None:
     memory = EgressMemory(clock=lambda: 0.0)
-    bounds = egress_bounds_for("arxiv")
+    bounds = egress_bounds_for("yahoo")  # proxy_supported=True → max=proxy
     memory.remember_failure("api.example.org", EgressLevel.IMPERSONATE)
     planner = EgressPlanner(
         memory,
@@ -79,7 +94,7 @@ def test_planner_uses_proxy_when_configured() -> None:
 
 def test_planner_ceiling_respects_max_level() -> None:
     memory = EgressMemory(clock=lambda: 0.0)
-    bounds = egress_bounds_for("arxiv")  # max = PROXY
+    bounds = egress_bounds_for("yahoo")  # max = PROXY
     memory.remember_failure("api.example.org", EgressLevel.IMPERSONATE)
     planner = EgressPlanner(
         memory,
@@ -179,7 +194,7 @@ def test_scraper_fetch_succeeds_without_climbing(monkeypatch) -> None:
 def test_scraper_fetch_raises_after_exhausting_climbs(monkeypatch) -> None:
     harness = _ScraperHarness(
         monkeypatch,
-        "arxiv",
+        "yahoo",
         {"impersonate": "fail", "proxy": "fail", "proxy_url": "socks5://localhost:1080"},
     )
 
@@ -192,7 +207,7 @@ def test_scraper_fetch_raises_after_exhausting_climbs(monkeypatch) -> None:
 def test_scraper_fetch_rate_limit_eligible_for_climb(monkeypatch) -> None:
     harness = _ScraperHarness(
         monkeypatch,
-        "arxiv",
+        "yahoo",
         {"impersonate": "rate", "proxy": "ok", "proxy_url": "socks5://localhost:1080"},
     )
 
@@ -342,3 +357,34 @@ def test_resolved_target_without_proxy_falls_back_to_legacy_retry(monkeypatch) -
     # legacy 循环：默认 proxy_override（None → self._proxy），500 重试后成功
     assert calls == [None, None]
     assert resp.status_code == 200
+
+
+def test_manifest_declared_egress_bounds() -> None:
+    """SPEC 5.2：min/max_egress 由源 manifest 声明，不再有中心源 id 清单。"""
+
+    for sid in ("baidu", "brave", "duckduckgo_news", "coolapk"):
+        bounds = egress_bounds_for(sid)
+        assert bounds.max_level is EgressLevel.BROWSER, sid
+
+    # proxy_supported=True 的源声明 max=proxy
+    assert egress_bounds_for("yahoo").max_level is EgressLevel.PROXY
+    # proxy_supported=False 的源诚实化 max=impersonate（从不解析代理）
+    assert egress_bounds_for("arxiv").max_level is EgressLevel.IMPERSONATE
+    # 内部/未知 id 回退默认
+    assert egress_bounds_for("").max_level is EgressLevel.PROXY
+    assert egress_bounds_for("not-a-source").max_level is EgressLevel.PROXY
+
+
+def test_network_declaration_rejects_inverted_bounds() -> None:
+    from pydantic import ValidationError
+
+    from souwen.platform.manifest_registry.models import NetworkDeclaration
+
+    with pytest.raises(ValidationError):
+        NetworkDeclaration(
+            egress_hosts=(),
+            min_egress="proxy",
+            max_egress="impersonate",
+            proxy_supported=True,
+            browser_required=False,
+        )

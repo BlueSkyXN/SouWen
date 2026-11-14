@@ -7,7 +7,12 @@ host at its last successful level and climbs on failure, one level at a
 time, never above the source's ceiling. Memory is process-local.
 """
 
-from souwen.common_runtime.egress.levels import EgressLevel, egress_bounds_for
+from souwen.common_runtime.egress.levels import (
+    EgressBounds,
+    EgressLevel,
+    egress_bounds_for,
+    register_egress_bounds,
+)
 from souwen.common_runtime.egress.memory import EgressMemory, get_egress_memory
 from souwen.common_runtime.egress.planner import (
     EgressDecision,
@@ -16,6 +21,7 @@ from souwen.common_runtime.egress.planner import (
 )
 
 __all__ = [
+    "EgressBounds",
     "EgressDecision",
     "EgressLevel",
     "EgressMemory",
@@ -23,4 +29,5 @@ __all__ = [
     "egress_bounds_for",
     "get_egress_memory",
     "get_egress_planner",
+    "register_egress_bounds",
 ]

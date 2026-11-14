@@ -26,6 +26,8 @@ USPTO_ODP_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": ["USPTO_API_KEY"]},
         "network": {
             "egress_hosts": ["data.uspto.gov"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

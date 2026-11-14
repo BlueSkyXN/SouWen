@@ -23,6 +23,8 @@ YOUTUBE_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": ["YOUTUBE_API_KEY"]},
         "network": {
             "egress_hosts": ["www.googleapis.com"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

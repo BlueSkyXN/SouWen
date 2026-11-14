@@ -25,6 +25,8 @@ DOAJ_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": [], "optional_references": ["DOAJ_API_KEY"]},
         "network": {
             "egress_hosts": ["doaj.org"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

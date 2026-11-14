@@ -25,6 +25,8 @@ INTERNET_ARCHIVE_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": []},
         "network": {
             "egress_hosts": ["archive.org"],
+            "min_egress": "impersonate",
+            "max_egress": "proxy",
             "proxy_supported": True,
             "browser_required": False,
         },

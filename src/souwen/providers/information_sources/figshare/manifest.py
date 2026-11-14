@@ -26,6 +26,8 @@ FIGSHARE_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": []},
         "network": {
             "egress_hosts": ["api.figshare.com"],
+            "min_egress": "impersonate",
+            "max_egress": "proxy",
             "proxy_supported": True,
             "browser_required": False,
         },

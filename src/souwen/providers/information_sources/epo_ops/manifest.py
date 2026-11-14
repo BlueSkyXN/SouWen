@@ -26,6 +26,8 @@ EPO_OPS_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": ["EPO_CONSUMER_KEY", "EPO_CONSUMER_SECRET"]},
         "network": {
             "egress_hosts": ["ops.epo.org"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

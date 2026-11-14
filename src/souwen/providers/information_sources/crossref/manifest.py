@@ -25,6 +25,8 @@ CROSSREF_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": []},
         "network": {
             "egress_hosts": ["api.crossref.org"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

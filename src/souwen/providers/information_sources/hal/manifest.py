@@ -25,6 +25,8 @@ HAL_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": []},
         "network": {
             "egress_hosts": ["api.archives-ouvertes.fr"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

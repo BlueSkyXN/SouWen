@@ -23,8 +23,10 @@ COOLAPK_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": []},
         "network": {
             "egress_hosts": ["html.duckduckgo.com"],
+            "min_egress": "impersonate",
+            "max_egress": "browser",
             "proxy_supported": True,
-            "browser_required": False,
+            "browser_required": True,
         },
         "risk": {"authenticated": False, "costed": False},
         "observability": {"dimensions": ["provider", "adapter", "capability", "outcome"]},

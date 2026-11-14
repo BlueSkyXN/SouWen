@@ -25,6 +25,8 @@ JINA_READER_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": [], "optional_references": ["JINA_API_KEY"]},
         "network": {
             "egress_hosts": ["r.jina.ai"],
+            "min_egress": "impersonate",
+            "max_egress": "proxy",
             "proxy_supported": True,
             "browser_required": False,
         },

@@ -24,6 +24,8 @@ SEARXNG_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "network": {
             "egress_hosts": [],
             "target_egress": "configured_self_hosted_endpoint",
+            "min_egress": "impersonate",
+            "max_egress": "proxy",
             "proxy_supported": True,
             "browser_required": False,
         },

@@ -139,8 +139,24 @@ def get_agent_runtime() -> AgentRuntime:
     global _instance
     with _instance_lock:
         if _instance is None:
+            _register_manifest_egress_bounds()
             _instance = AgentRuntime(build_target_runtime(get_config()))
         return _instance
+
+
+def _register_manifest_egress_bounds() -> None:
+    """Publish each source manifest's min/max_egress into the egress registry.
+
+    providers 层把声明推进 common_runtime（依赖方向合法，架构门禁
+    DEP-004）；agent 门面在构建 runtime 前调用一次。
+    """
+
+    try:
+        from souwen.providers.catalog import register_manifest_egress_bounds
+
+        register_manifest_egress_bounds()
+    except Exception:  # pragma: no cover - manifest 损坏时回退默认边界
+        return
 
 
 async def search(

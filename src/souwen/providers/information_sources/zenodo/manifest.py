@@ -25,6 +25,8 @@ ZENODO_PROVIDER_MANIFEST = ProviderManifest.model_validate(
         "secrets": {"references": [], "optional_references": ["ZENODO_ACCESS_TOKEN"]},
         "network": {
             "egress_hosts": ["zenodo.org"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
             "proxy_supported": False,
             "browser_required": False,
         },

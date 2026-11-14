@@ -151,6 +151,7 @@ def scraper_search_manifest(
     *,
     proxy_supported: bool = True,
     optional_secrets: list[str] | None = None,
+    max_egress: str = "proxy",
 ) -> ProviderManifest:
     schema = f"{provider_id.replace('_', '-')}-scraper-provider-config-v1"
     return ProviderManifest.model_validate(
@@ -176,8 +177,10 @@ def scraper_search_manifest(
             "secrets": {"references": [], "optional_references": optional_secrets or []},
             "network": {
                 "egress_hosts": hosts,
-                "proxy_supported": proxy_supported,
-                "browser_required": False,
+                "min_egress": "impersonate",
+                "max_egress": max_egress,
+                "proxy_supported": proxy_supported or max_egress in {"proxy", "browser"},
+                "browser_required": max_egress == "browser",
             },
             "risk": {"authenticated": False, "costed": False},
             "observability": {"dimensions": ["provider", "adapter", "capability", "outcome"]},

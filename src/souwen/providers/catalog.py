@@ -49,4 +49,29 @@ def builtin_provider_manifests() -> tuple[ProviderManifest, ...]:
     return tuple(sorted(registry.packages, key=lambda manifest: manifest.id))
 
 
-__all__ = ["builtin_provider_manifests"]
+def register_manifest_egress_bounds(
+    manifests: tuple[ProviderManifest, ...] | None = None,
+) -> None:
+    """Publish every manifest's declared min/max_egress to the egress module.
+
+    SPEC 5.2：源的阶梯边界由 manifest 声明。common_runtime 不能反向 import
+    providers（架构门禁 DEP-004），因此由本模块把声明推进注册表。
+    """
+
+    from souwen.common_runtime.egress import EgressBounds, register_egress_bounds
+    from souwen.common_runtime.egress.levels import EgressLevel
+
+    levels = {level.label: level for level in EgressLevel}
+    for manifest in manifests if manifests is not None else builtin_provider_manifests():
+        network = getattr(manifest, "network", None)
+        min_name = getattr(network, "min_egress", None)
+        max_name = getattr(network, "max_egress", None)
+        if min_name is None or max_name is None:
+            continue
+        register_egress_bounds(
+            manifest.id,
+            EgressBounds(min_level=levels[min_name], max_level=levels[max_name]),
+        )
+
+
+__all__ = ["builtin_provider_manifests", "register_manifest_egress_bounds"]
