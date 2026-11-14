@@ -59,34 +59,15 @@ def batch_two_paper(provider_id: str) -> PaperResult:
             source_url="https://zenodo.org/records/123456",
             raw={"zenodo_id": 123456, "resource_subtype": "article"},
         )
-    if provider_id == "zotero":
-        return PaperResult(
-            **common,
-            source_url="https://api.zotero.org/users/12345/items/ABCD1234",
-            raw={
-                "item_key": "ABCD1234",
-                "item_type": "journalArticle",
-                "library_id": "12345",
-                "library_type": "user",
-            },
-        )
     raise ValueError("unsupported Batch 2 paper provider")
 
 
 def batch_two_patent(provider_id: str) -> PatentResult:
     identifiers = {
-        "cnipa": ("CN123A", "https://open.cnipr.com/patent/CN123A", {}),
         "epo_ops": (
             "EP123",
             "https://worldwide.espacenet.com/patent/search?q=EP123",
             {},
-        ),
-        "patsnap": ("US123", "https://connect.patsnap.com/patent/US123", {}),
-        "pqai": ("US123", "https://patents.google.com/patent/US123", {}),
-        "the_lens": (
-            "US123",
-            "https://www.lens.org/lens/patent/LENS-B2",
-            {"lens_id": "LENS-B2"},
         ),
         "uspto_odp": ("US123", "https://data.uspto.gov/patent/US123", {}),
     }

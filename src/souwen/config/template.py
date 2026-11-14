@@ -26,14 +26,9 @@ paper:
 # ===== 专利数据源 =====
 patent:
   patentsview_api_key: ~
-  pqai_api_token: ~
   uspto_api_key: ~
   epo_consumer_key: ~
   epo_consumer_secret: ~
-  cnipa_client_id: ~
-  cnipa_client_secret: ~
-  lens_api_token: ~
-  patsnap_api_key: ~
 
 # ===== 常规搜索 =====
 web:

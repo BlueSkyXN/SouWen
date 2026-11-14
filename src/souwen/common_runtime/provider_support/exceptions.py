@@ -12,7 +12,7 @@ class ConfigError(SouWenError):
     """配置缺失或无效（如未设置必需的 API Key）
 
     属性：
-        key: 配置项名称（如 'tavily_api_key'）
+        key: 配置项名称（如 'uspto_api_key'）
         service: 相关服务名称（如 'Tavily'）
         register_url: 注册/获取 API Key 的 URL（可选）
     """

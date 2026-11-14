@@ -75,8 +75,7 @@ class SouWenConfig(BaseModel):
                            semantic_scholar_api_key, core_api_key, pubmed_api_key,
                            ieee_api_key
 
-        专利源 API Key: uspto_api_key, epo_consumer_key/secret, cnipa_client_id/secret,
-                        lens_api_token, patsnap_api_key
+        专利源 API Key: uspto_api_key, epo_consumer_key/secret
 
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数), max_retries (重试次数),
@@ -156,20 +155,14 @@ class SouWenConfig(BaseModel):
 
     # ===== 专利数据源 =====
     patentsview_api_key: str | None = Field(default=None, repr=False)
-    pqai_api_token: str | None = None
     uspto_api_key: str | None = None
     epo_consumer_key: str | None = None
     epo_consumer_secret: str | None = None
-    cnipa_client_id: str | None = None
-    cnipa_client_secret: str | None = None
-    lens_api_token: str | None = None
-    patsnap_api_key: str | None = None
 
     # ===== 常规搜索 =====
     # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing) 无需 Key
     # API 引擎需要对应的 Key
     searxng_url: str | None = None  # SearXNG 自建实例 URL
-    tavily_api_key: str | None = None  # Tavily AI 搜索
     # 新增搜索引擎 API Key
     # 社区 / 视频平台
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
@@ -408,7 +401,7 @@ class SouWenConfig(BaseModel):
 
         Args:
             source: 数据源名称
-            legacy_field: 旧版 SouWenConfig 字段名(如 "tavily_api_key")
+            legacy_field: 旧版 SouWenConfig 字段名(如 "uspto_api_key")
         """
         sc = self.get_source_config(source)
         if sc.api_key:

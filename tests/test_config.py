@@ -186,10 +186,10 @@ class TestEnvOverride:
 
     def test_env_sets_api_key(self, monkeypatch):
         """环境变量设置 API Key"""
-        monkeypatch.setenv("SOUWEN_TAVILY_API_KEY", "env-key")
+        monkeypatch.setenv("SOUWEN_USPTO_API_KEY", "env-key")
         cfg = reload_config()
         try:
-            assert cfg.tavily_api_key == "env-key"
+            assert cfg.uspto_api_key == "env-key"
         finally:
             get_config.cache_clear()
 
@@ -393,10 +393,10 @@ class TestSourceChannelConfig:
         from souwen.config import SourceChannelConfig
 
         cfg = SouWenConfig(
-            tavily_api_key="flat-key",
-            sources={"tavily": SourceChannelConfig(api_key="channel-key")},
+            uspto_api_key="flat-key",
+            sources={"uspto_odp": SourceChannelConfig(api_key="channel-key")},
         )
-        assert cfg.resolve_api_key("tavily", "tavily_api_key") == "channel-key"
+        assert cfg.resolve_api_key("uspto_odp", "uspto_api_key") == "channel-key"
 
     def test_openalex_channel_key_does_not_replace_contact_email(self):
         """OpenAlex channel api_key 与兼容联系邮箱使用独立配置语义。"""
@@ -412,8 +412,8 @@ class TestSourceChannelConfig:
 
     def test_resolve_api_key_fallback_to_flat(self):
         """无频道 api_key 回退到 flat key"""
-        cfg = SouWenConfig(tavily_api_key="flat-key")
-        assert cfg.resolve_api_key("tavily", "tavily_api_key") == "flat-key"
+        cfg = SouWenConfig(uspto_api_key="flat-key")
+        assert cfg.resolve_api_key("uspto_odp", "uspto_api_key") == "flat-key"
 
     def test_resolve_base_url(self):
         """base_url 覆盖"""

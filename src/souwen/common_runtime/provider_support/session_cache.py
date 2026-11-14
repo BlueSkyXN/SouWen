@@ -224,7 +224,7 @@ class SessionCache:
         """获取有效的 OAuth Token
 
         Args:
-            provider: 提供方标识（如 'epo_ops', 'cnipa'）
+            provider: 提供方标识（如 'epo_ops', 'uspto_odp'）
 
         Returns:
             Token 数据字典（包含 access_token、token_type、extra），
@@ -259,7 +259,7 @@ class SessionCache:
         """保存 OAuth Token
 
         Args:
-            provider: 提供方标识（如 'epo_ops', 'cnipa'）
+            provider: 提供方标识（如 'epo_ops', 'uspto_odp'）
             access_token: 访问令牌
             expires_in: 有效期（秒），默认 20 分钟（1200s）
             token_type: 令牌类型，默认 'Bearer'

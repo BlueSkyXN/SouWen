@@ -67,19 +67,9 @@ def _fake_client(provider_id, constructor_calls, search_calls, closed):
 def _config() -> SouWenConfig:
     return SouWenConfig(
         sources={provider_id: {"enabled": True} for provider_id in _CLIENT_GLOBALS},
-        cnipa_client_id="fixture-cnipa-id",
-        cnipa_client_secret="fixture-cnipa-secret",
-        core_api_key="fixture-core-key",
         epo_consumer_key="fixture-epo-key",
         epo_consumer_secret="fixture-epo-secret",
-        ieee_api_key="fixture-ieee-key",
-        patsnap_api_key="fixture-patsnap-key",
-        pqai_api_token="fixture-pqai-token",
-        lens_api_token="fixture-lens-token",
         uspto_api_key="fixture-uspto-key",
-        zotero_api_key="fixture-zotero-key",
-        zotero_library_id="12345",
-        zotero_library_type="user",
     )
 
 
