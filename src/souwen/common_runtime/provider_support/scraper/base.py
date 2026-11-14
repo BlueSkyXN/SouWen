@@ -489,53 +489,101 @@ class BaseScraper:
         last_error: Exception | None = None
         display_url = _resolved_target.original_url if _resolved_target is not None else url
 
-        # egress 阶梯：普通请求按主机记忆选级；带 SSRF 解析目标的请求保持
-        # 既有 IP-pin 路径（抓取阶梯在 Fetch 编排层处理内容质量升级）。
+        # egress 阶梯：未解析的常规请求与 SSRF 解析请求都按主机记忆选级；
+        # 解析请求（_resolved_target）保持 IP-pin 连接语义，级别只决定
+        # 是否经代理（direct/proxy），BROWSER 级由 Fetch 编排层的
+        # browser executor 承担（内容质量升级条件见 SPEC 4.3）。
         egress_level = None
         bounds = None
-        if self._egress_enabled and _resolved_target is None:
+        if self._egress_enabled:
             from souwen.common_runtime.egress import EgressLevel
+            from souwen.common_runtime.egress.levels import EgressBounds
 
             bounds = self._egress_planner.effective_bounds(self._egress_bounds)
             decision = self._egress_planner.plan(urlsplit(url).hostname or "", self._egress_bounds)
             egress_level = decision.level
             if decision.proxy is not None and egress_level is EgressLevel.PROXY:
                 self._proxy = decision.proxy
-            climbs = 0
-            while True:
-                try:
-                    # 未到天花板的级别只试一次：快速失败换快速爬级，
-                    # 完整重试预算留给天花板级别，避免阶梯把请求预算烧光。
-                    resp = await self._request_with_retries(
-                        method,
-                        url,
-                        params,
-                        request_headers,
-                        data,
-                        egress_level,
-                        display_url,
-                        attempts=(1 if int(egress_level) < int(bounds.max_level) else None),
-                    )
-                except (SourceUnavailableError, RateLimitError) as exc:
-                    self._egress_planner.report_failure(urlsplit(url).hostname or "", egress_level)
-                    if (
-                        bounds is not None
-                        and climbs < _EGRESS_MAX_CLIMBS
-                        and int(egress_level) < int(bounds.max_level)
-                    ):
-                        climbs += 1
-                        egress_level = EgressLevel(int(egress_level) + 1)
-                        last_error = exc
-                        logger.info(
-                            "egress 升级到 %s 重试 %s",
-                            egress_level.label,
-                            display_url,
+            # 解析请求的级别天花板是 PROXY（浏览器不属于本方法）；
+            # 未解析请求原样走四级。起步级已达天花板时（如无代理环境
+            # IMPERSONATE 即有效上限），解析请求没有可爬空间，直接走
+            # legacy 重试循环（_proxy_override 由调用方决定）。
+            request_bounds = bounds
+            if _resolved_target is not None:
+                request_bounds = EgressBounds(
+                    min_level=request_bounds.min_level,
+                    max_level=min(request_bounds.max_level, EgressLevel.PROXY),
+                )
+                if int(egress_level) >= int(request_bounds.max_level):
+                    egress_level = None  # 无爬升空间：走 legacy 路径
+            if egress_level is not None:
+                climbs = 0
+                while True:
+                    try:
+                        if _resolved_target is not None:
+                            # 解析请求：IP-pin 语义不变，级别只决定是否经代理。
+                            # 非天花板级别单次尝试且限时（快速失败换快速爬级），
+                            # 天花板级别交给 legacy 重试循环（保住重试预算）。
+                            proxy_override_for_level: str | None = None
+                            if egress_level is EgressLevel.PROXY and self._proxy:
+                                proxy_override_for_level = self._proxy
+                            elif self._proxy:
+                                proxy_override_for_level = ""  # 显式直连，覆盖默认代理
+                            attempt = self._do_resolved_request(
+                                method,
+                                _resolved_target,
+                                params,
+                                request_headers,
+                                data=data,
+                                proxy_override=proxy_override_for_level,
+                                _max_response_bytes=_max_response_bytes,
+                            )
+                            resp = await asyncio.wait_for(
+                                attempt, timeout=_EGRESS_PROBE_TIMEOUT_SECONDS
+                            )
+                            if resp.status_code in (429, 401, 403) or resp.status_code >= 500:
+                                raise SourceUnavailableError(
+                                    f"upstream status {resp.status_code}: {display_url}"
+                                )
+                        else:
+                            resp = await self._request_with_retries(
+                                method,
+                                url,
+                                params,
+                                request_headers,
+                                data,
+                                egress_level,
+                                display_url,
+                                attempts=(
+                                    1 if int(egress_level) < int(request_bounds.max_level) else None
+                                ),
+                            )
+                    except (SourceUnavailableError, RateLimitError) as exc:
+                        # SSRF/策略类失败与出口无关，爬级救不了：直接抛出
+                        if "SSRF" in str(exc) or "被拦截" in str(exc):
+                            raise
+                        self._egress_planner.report_failure(
+                            urlsplit(url).hostname or "", egress_level
                         )
-                        continue
-                    raise
-                self._egress_planner.report_success(urlsplit(url).hostname or "", egress_level)
-                self._tag_egress(resp, egress_level)
-                return resp
+                        if climbs < _EGRESS_MAX_CLIMBS and int(egress_level) < int(
+                            request_bounds.max_level
+                        ):
+                            climbs += 1
+                            egress_level = EgressLevel(int(egress_level) + 1)
+                            last_error = exc
+                            logger.info(
+                                "egress 升级到 %s 重试 %s",
+                                egress_level.label,
+                                display_url,
+                            )
+                            continue
+                        if _resolved_target is not None:
+                            # 到天花板：交 legacy 重试循环（保留既有 429/5xx 重试语义）
+                            break
+                        raise
+                    self._egress_planner.report_success(urlsplit(url).hostname or "", egress_level)
+                    self._tag_egress(resp, egress_level)
+                    return resp
 
         # A configured zero means no retry after the initial request, not zero requests.
         for attempt in range(1, max(1, self.max_retries) + 1):
@@ -796,7 +844,10 @@ class BaseScraper:
                         )
                     else:
                         resp = await chain
-            except (SourceUnavailableError, RateLimitError):
+            except (SourceUnavailableError, RateLimitError) as exc:
+                # SSRF/策略类失败与出口无关，爬级救不了：直接抛出
+                if "SSRF" in str(exc) or "被拦截" in str(exc):
+                    raise
                 self._egress_planner.report_failure(urlsplit(url).hostname or "", level)
                 if climbs < _EGRESS_MAX_CLIMBS and int(level) < int(bounds.max_level):
                     climbs += 1
@@ -991,7 +1042,8 @@ class BaseScraper:
         SouWen/WARP proxy remains available through ``self._proxy``.
         """
         client_key = self._safe_client_key(target)
-        effective_proxy = self._proxy if proxy_override is None else proxy_override
+        # proxy_override: None = 默认（self._proxy）；"" = 显式直连；其余为指定代理
+        effective_proxy = self._proxy if proxy_override is None else (proxy_override or None)
         pool_key = (client_key, effective_proxy)
         safe_httpx_client = self._safe_httpx_clients.get(pool_key)
         if safe_httpx_client is None:

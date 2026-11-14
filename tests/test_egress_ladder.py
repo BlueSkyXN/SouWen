@@ -232,3 +232,113 @@ def test_scraper_fetch_403_response_counts_as_failure(monkeypatch) -> None:
 
     assert calls == ["impersonate", "proxy"]
     assert resp.extensions["souwen_egress"] == "proxy"
+
+
+def test_resolved_target_climbs_direct_to_proxy_via_override(monkeypatch) -> None:
+    """解析请求（IP-pin 路径）接入阶梯：直连被拒后经 proxy_override 用代理重试。
+
+    builtin 正文抓取走 _fetch(_resolved_target=...)；此前该路径完全绕过
+    planner，直连失败不会升级（复核 20261114 3.2 指出）。
+    """
+
+    from souwen.common_runtime.provider_support.scraper.base import BaseScraper
+    from souwen.common_runtime.egress import EgressMemory
+    from souwen.common_runtime.security import ResolvedFetchTarget
+
+    memory = EgressMemory(clock=lambda: 0.0)
+    seen_overrides: list[str | None] = []
+
+    class _Scraper(BaseScraper):
+        ENGINE_NAME = "bing"
+
+    scraper = _Scraper(min_delay=0, max_delay=0, max_retries=1, follow_redirects=False)
+    scraper._proxy = "socks5://localhost:1080"
+    scraper._egress_planner = EgressPlanner(
+        memory,
+        proxy_provider=lambda: "socks5://localhost:1080",
+        browser_available=lambda: False,
+    )
+
+    async def fake_resolved(
+        method, target, params, headers, data=None, *, proxy_override=None, _max_response_bytes=None
+    ):  # noqa: E501
+        seen_overrides.append(proxy_override)
+        # 第一跳（IMPERSRONATE 探测，显式直连 ""）被拒；PROXY 级带代理成功
+        if proxy_override == "":
+            return _FakeResponse(status_code=403)
+        return _FakeResponse()
+
+    scraper._do_resolved_request = fake_resolved  # type: ignore[method-assign]
+
+    target = ResolvedFetchTarget(
+        original_url="https://www.bing.com/page",
+        connect_url="https://1.1.1.1/page",
+        host_header="www.bing.com",
+        sni_hostname="www.bing.com",
+    )
+
+    resp = asyncio.run(scraper._fetch("https://www.bing.com/page", _resolved_target=target))
+
+    # 第一跳直连（显式空串覆盖默认代理），失败后升级 PROXY 用真代理
+    assert seen_overrides == ["", "socks5://localhost:1080"]
+    assert resp.extensions["souwen_egress"] == "proxy"
+
+
+def test_resolved_target_without_proxy_falls_back_to_legacy_retry(monkeypatch) -> None:
+    """无代理时解析请求起步级即天花板：保持 legacy 重试语义（不进阶梯）。"""
+
+    from souwen.common_runtime.provider_support.scraper.base import BaseScraper
+    from souwen.common_runtime.egress import EgressMemory
+    from souwen.common_runtime.security import ResolvedFetchTarget
+
+    memory = EgressMemory(clock=lambda: 0.0)
+    calls: list[str | None] = []
+
+    class _Scraper(BaseScraper):
+        ENGINE_NAME = "arxiv"
+
+    scraper = _Scraper(min_delay=0, max_delay=0, max_retries=2, follow_redirects=False)
+    scraper._proxy = None
+    scraper._egress_planner = EgressPlanner(
+        memory,
+        proxy_provider=lambda: None,
+        browser_available=lambda: False,
+    )
+
+    async def fake_resolved(
+        method, target, params, headers, data=None, *, proxy_override=None, _max_response_bytes=None
+    ):  # noqa: E501
+        calls.append(proxy_override)
+        if len(calls) == 1:
+            return _FakeResponse(status_code=500)
+        return _FakeResponse()
+
+    scraper._do_resolved_request = fake_resolved  # type: ignore[method-assign]
+
+    async def no_delay() -> None:
+        return None
+
+    scraper._polite_delay = no_delay  # type: ignore[method-assign]
+
+    import souwen.common_runtime.provider_support.scraper.base as base_module
+
+    real_sleep = base_module.asyncio.sleep
+
+    async def fast_sleep(_delay: float) -> None:
+        return None
+
+    base_module.asyncio.sleep = fast_sleep
+    try:
+        target = ResolvedFetchTarget(
+            original_url="https://arxiv.org/abs/1",
+            connect_url="https://1.1.1.1/abs/1",
+            host_header="arxiv.org",
+            sni_hostname="arxiv.org",
+        )
+        resp = asyncio.run(scraper._fetch("https://arxiv.org/abs/1", _resolved_target=target))
+    finally:
+        base_module.asyncio.sleep = real_sleep
+
+    # legacy 循环：默认 proxy_override（None → self._proxy），500 重试后成功
+    assert calls == [None, None]
+    assert resp.status_code == 200
