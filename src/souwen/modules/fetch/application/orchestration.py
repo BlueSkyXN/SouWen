@@ -29,6 +29,21 @@ BUILTIN_FETCH_ADAPTER_ID = "builtin-fetch"
 _MIN_USABLE_BODY_CHARS = 500
 
 
+def _body_may_improve(result: FetchResult) -> bool:
+    """A successful static fetch whose body may still get better with rendering.
+
+    Two cases: the shared quality gate already called it low, or the body is
+    shorter than the usable threshold even though it cleared the 200-char
+    quality bar (JS-shell remainder). Both should reach the browser level.
+    """
+
+    if result.content_metadata is None:
+        return False
+    if result.content_metadata.quality == "low":
+        return True
+    return len((result.content or "").strip()) < _MIN_USABLE_BODY_CHARS
+
+
 @dataclass(frozen=True, slots=True)
 class _TargetOutcome:
     result: FetchResult
@@ -319,14 +334,7 @@ class FetchModuleService:
         if result.status == "success":
             if result.content_metadata is None:
                 return False
-            if result.content_metadata.quality == "low":
-                return True
-            # SPEC 4.3 的门槛是 200 字符，而体检通过线是 500。200–500 之间的
-            # 页面既不算失败也不会升级，实际是 JS 空壳的残余正文（静态抓取
-            # 拿到外壳但拿不到渲染后的内容）。这类页面同样升级到 browser，
-            # 否则它们永远停在"有点内容但不够"的状态。
-            body = (result.content or "").strip()
-            return len(body) < _MIN_USABLE_BODY_CHARS
+            return _body_may_improve(result)
         return result.error is not None and result.error.code in {
             "provider_timeout",
             "provider_unavailable",

@@ -178,7 +178,10 @@ jobs:
         run: |
           # browser 级是 fetch 升级与搜索兜底的最后一跳。它是否可用决定
           # 报告里能否出现真实 browser 证据，所以把判定依据写进报告。
+          # 除了"文件在不在"，还要真的抓一次页面：Chromium 装好但因缺
+          # 系统库起不来时，只有实际调用会暴露 BrowserAcquisitionError。
           docker exec souwen python -c "
+          import asyncio
           from souwen.common_runtime.provider_support.browser_fetch import chromium_available
           import os, pathlib
           root = os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or str(pathlib.Path.home()/'.cache'/'ms-playwright')
@@ -186,6 +189,25 @@ jobs:
           print('playwright_root:', root)
           print('playwright_entries:', entries[:6])
           print('chromium_available:', chromium_available())
+
+          async def probe():
+              from souwen.common_runtime.provider_support.browser_fetch import (
+                  BrowserAcquisitionError,
+                  fetch_page_content,
+              )
+              try:
+                  outcome = await fetch_page_content(
+                      'https://example.com/', max_code_points=2000,
+                      timeout_seconds=45.0, proxy=None,
+                  )
+              except BrowserAcquisitionError as exc:
+                  print('browser_fetch: FAILED code=%s' % exc.code)
+              except Exception as exc:
+                  print('browser_fetch: FAILED %s: %s' % (type(exc).__name__, str(exc)[:200]))
+              else:
+                  print('browser_fetch: OK chars=%d title=%r' % (len(outcome.content), outcome.title))
+
+          asyncio.run(probe())
           " | tee "reports/${{ steps.label.outputs.label }}/browser-availability.txt"
 
       - name: Run doctor --live (per egress level)
