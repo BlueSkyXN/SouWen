@@ -50,7 +50,7 @@ stdio (Claude Code, Codex, and other hosts):
   "mcpServers": {
     "souwen": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen", "souwen", "mcp"]
+      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen@agent-first", "souwen", "mcp"]
     }
   }
 }

@@ -1,7 +1,8 @@
 # SouWen 架构概览
 
-SouWen 2.0 是 target-only information-retrieval API。公开产品能力只有 Search、LLM Search
-和 Fetch；HTTP contract 由 frozen OpenAPI 固定，Python/TypeScript 调用方只使用生成 SDK。
+SouWen 3.x 是给 AI Agent 用的免费搜索与抓取工具：只有 `search` 和 `fetch` 两个动作，
+入口是 MCP（stdio 与 `/mcp`）和一个扁平 HTTP API。看家本领是出口阶梯——让零 Key 源
+在 WARP、代理和无头浏览器下确实能用。
 
 <!-- BEGIN AUTO: REGISTRY SUMMARY -->
 **Provider v2 摘要**：Manifest Registry 从内置 package 发现 **36** 份 manifest、**36** 个 adapter。
@@ -12,52 +13,66 @@ Provider Manager 对 manifest、configuration、secret reference 和显式 facto
 ## 1. 分层与依赖方向
 
 ```text
-Panel / generated Python SDK / generated TypeScript SDK
+MCP client (stdio) │ HTTP client (/search /fetch /mcp) │ Python (souwen.search/fetch)
                          │
                          ▼
-delivery/api ── frozen OpenAPI、auth/rate-limit、canonical DTO
+agent.py 门面 ── server/（app、auth、限流、MCP server、doctor）
                          │
                          ▼
-modules/search | modules/llm_search | modules/fetch
+modules/search（领域选源、并发、回退、紧凑投影）
+modules/fetch（站点处理器 → 通用抓取 → 提取链 → 分页缓存）
                          │
                          ▼
-platform/provider_manager + platform/provider_spi
+platform/（provider SPI、manifest registry、manager）
                          │
                          ▼
-providers/*/manifest.py + spec.py + adapter.py
-                         │
-                         ▼
-providers/runtime_clients + common_runtime
+providers/*（一个源一个包：manifest + spec + adapter）+ runtime_clients（私有 client）
+common_runtime/（transport、egress 阶梯、SSRF、限流、WARP 支持）
 ```
 
-- `delivery/api/` 是唯一公开 Data API 边界；Server host 只额外挂载 Panel、`whoami` 和只读
-  Admin config/doctor/ping。
-- `modules/` 只编排 canonical request、Provider selection、deadline 与 canonical result。
-- `platform/manifest_registry/` 校验静态 manifest，`ProviderManager` 负责 preflight、按需构造、
-  probe 和生命周期关闭。
-- `providers/runtime_clients/` 是私有传输/解析实现，不属于 Python 公共 API。
-- `common_runtime/` 提供 transport、SSRF/security、retry/resilience、observability 和共享
-  Provider support；它不能依赖 delivery、modules 或具体 Provider。
+- `agent.py` 是唯一门面：MCP、HTTP、Python 三入口共用同一 runtime 与投影。
+- `server/` 组装 FastAPI 应用、user 凭据鉴权、限流与 MCP streamable app（挂载在 `/mcp`）。
+- `modules/` 只做编排：搜索的候选批、失败降级与 RRF 合并；抓取的处理器链与分页缓存。
+- `common_runtime/egress/` 实现四级出口阶梯（下文第 3 节）；它不能反向依赖 modules 或
+  具体源。
+- 依赖方向由 `scripts/ci/check_architecture_dependencies.py` 门禁执行。
 
-依赖门禁由 `scripts/ci/check_architecture_dependencies.py` 执行。Provider package 不能维护第二份
-catalog，也不能绕过 `ProviderManager` 直接进入公开路由。
+## 2. Provider 与源声明
 
-## 2. Provider v2 单一事实源
+每个源一个 package（`providers/information_sources/<id>/` 或 `fetch_sources/<id>/`）：
 
-每个内置 Provider package 以 `manifest.py` 声明：
+- `manifest.py` 是身份唯一事实源：id、capability、adapter、可选 Key，以及
+  `min_egress`/`max_egress`（出口阶梯边界，SPEC 5.2）。
+- `providers/catalog.py` 只做目录发现（导入各包的 manifest），不导入 adapter 或 client。
+- 私有传输与解析在 `providers/runtime_clients/`，不属于公共 API。
 
-- package ID、版本与 `provider-v2` contract；
-- `search`、`llm_search`、`fetch` 中的一个或多个 capability；
-- adapter ID/export 与 availability；
-- non-secret configuration schema 与 secret reference；
-- 受审 egress、proxy/browser 要求、risk 与 observability dimensions。
+## 3. 出口阶梯（核心能力）
 
-`src/souwen/providers/catalog.py` 只发现三个内置 namespace 下的 `manifest.py`，不会为生成文档
-而导入 adapter 或 runtime client。`ManifestRegistry` 拒绝重复 package/adapter；Server、Provider
-catalog 与生成文档都消费同一组 manifests。
+四级：`direct`（httpx）→ `impersonate`（curl_cffi 指纹）→ `proxy`（WARP/用户代理）→
+`browser`（Playwright Chromium）。要点：
 
-Provider spec 负责把 deployment config/secret 映射成受审 factory 输入。运行时 factory 只在
-Provider 被选择时构造私有 client，所有 client 由 `ProviderManager.close_all()` 统一关闭。
+- 每个源用 manifest 声明起步级与最高级；进程内按（主机，级别）记忆最近成败，失败爬级。
+- 未到天花板的级别限时 4 秒快速失败，把预算留给更高级别；天花板级别保留完整重试语义。
+- 抓取正文路径（IP-pin 的 SSRF 安全请求）同样接入阶梯：direct 被拒升级 proxy，
+  内容判定为验证页/JS 空壳/<200 字短正文时由编排层升级 browser。
+- 浏览器级双重安全：页面级 route 策略（每个 URL 先过 SSRF 校验）+ 连接级
+  `PinnedLoopbackProxy`（回环代理把流量 pin 到已校验 IP；配置了 WARP/用户代理时
+  经上游代理转发，上游只见到 IP 字面量）。
+- 未安装 Chromium 或未配置代理时对应级别自动跳过，不报启动错误。
+
+## 4. MCP 与 HTTP API
+
+MCP 恰好两个工具：`search(query, domain, limit)`、`fetch(url, max_chars, start)`；源清单
+走 `souwen://sources` 资源。HTTP 侧是 `POST /search`、`POST /fetch`、`GET /sources`、
+`GET /healthz` 与 `/mcp`（streamable HTTP）。鉴权配置 `user_password` 后全部入口要求
+Bearer/token；未配置则开放（沿用既有行为，不放宽）。
+
+## 5. 体检与判定
+
+`scripts/census.py`（固定查询）+ `census.yml`（权威环境：根镜像、WARP 双腿、零 Key）
+每周运行；PASS/WARN/FAIL 判定，FAIL 源按 SPEC 6.3 规则删除。`souwen doctor --live`
+在进程内逐出口级别点名探测（搜索源 + 三类抓取 URL），报告记录实际使用的级别；
+程序错误（ERROR）与上游失败（FAIL）分开呈现。
 
 <!-- BEGIN AUTO: CROSS-DOMAIN FETCH SOURCES -->
 以下 package 通过独立 adapter 提供多个公开能力：
@@ -66,77 +81,19 @@ Provider 被选择时构造私有 client，所有 client 由 `ProviderManager.cl
 |---|---|---|
 <!-- END AUTO: CROSS-DOMAIN FETCH SOURCES -->
 
-## 3. 公开 HTTP 与 SDK contract
+## 6. 新增一个源
 
-Frozen OpenAPI 只有 8 个 paths：
-
-| Method | Path | Responsibility |
-|---|---|---|
-| POST | `/api/v1/search` | 多 domain Provider Search |
-| POST | `/api/v1/llm-search` | model-bound LLM Search |
-| POST | `/api/v1/fetch` | 逐目标 Fetch 与 SSRF-safe result |
-| GET | `/api/v1/providers` | 安全的 Provider catalog 投影 |
-| GET | `/healthz`, `/health` | canonical health 与 retained alias |
-| GET | `/readyz`, `/readiness` | canonical readiness 与 retained alias |
-
-`tools/gen_openapi.py` 生成 immutable artifact；`tools/gen_client_sdk.py` 与
-`tools/gen_typescript_sdk.py` 从该 artifact 生成 client/DTO。手写 route、Panel transport 或并行 DTO
-不能扩展 Data API。
-
-Host-only `GET /api/v1/whoami`、Admin config/doctor/ping 和 `/panel` 不进入 frozen target OpenAPI。
-Admin API 始终受 Admin auth 保护，且只读、脱敏、不执行 live Provider probe。
-
-## 4. Search、LLM Search 与 Fetch
-
-### Search
-
-`SearchModuleService` 使用 domain default selection 或调用方的显式 ProviderRef；每个 selection
-映射到 manifest adapter ID。单 Provider 失败转换为 canonical `ProviderError`，不会回退到已删除
-的 facade/registry 聚合器。
-
-### LLM Search
-
-LLM Search Provider 绑定 exact model/scheme/gateway identity。部署方在
-`llm_search_gateways` 配置 private base URL/API key，并在 `sources` 中显式启用一个内置 LLM
-Search Provider。正式 HFS promotion 会要求该能力可用并执行 live call。
-
-### Fetch
-
-`FetchModuleService` 只调用 manifest 声明的 Fetch adapter。目标 URL 在交给直连 client、第三方
-提取服务或 Browser Worker 前执行 canonical SSRF 校验；redirect 逐跳重新绑定并校验。Browser
-Worker 只监听受认证的内部 loopback，不是外部 API。
-
-## 5. 配置、认证与部署
-
-配置优先级为 environment > `./souwen.yaml` > user config > `.env` > defaults。Provider secret
-只能通过部署配置解析，不进入 manifest、catalog、Admin response、日志或生成文档。
-
-User credential 保护四个 Data API 操作；Admin credential 保护 host-only Admin 投影。无密码 Admin
-仅在显式 `SOUWEN_ADMIN_OPEN=1` 的本地/CI 场景开放，正式 HFS 必须为 `admin_open=false`，并验证
-anonymous Admin 被拒绝。
-
-HFS wrapper 固定 exact Git source SHA，并分别校验 wrapper SHA、runtime source SHA、Browser Worker
-source SHA、config revision、Panel、OpenAPI、Search/LLM Search/Fetch live 与 restart 后状态。
-
-## 6. 新增 Provider
-
-新增 Provider 的最小闭环是：
-
-1. 在对应 `providers/{information_sources,fetch_sources,llm_sources}/<id>/` 增加
-   `manifest.py`、`spec.py`、`adapter.py`；需要私有 transport/parser 时使用
-   `providers/runtime_clients/` 与 Common Runtime。
-2. 增加 manifest/spec/adapter parity、eligibility、factory lifecycle、dispatch 和 normalization 的
-   deterministic tests。
-3. 运行 Provider、architecture、OpenAPI/SDK、生成文档与 residue gates。
+1. 在 `providers/<namespace>/<id>/` 增加 `manifest.py`（声明领域、主机、egress 边界、
+   可选 Key）与 adapter；需要私有传输时放 `runtime_clients/`。
+2. 为解析函数补真实响应夹具测试（`tests/fixtures/`）。
+3. 跑 `pytest`、`gen_docs --check`、架构与残留门禁；push 后由 census 验证真实可用性，
+   连续 FAIL 会被删除——本仓库不保留没验证过能用的源。
 
 ## 7. 验证护栏
 
-- `pytest tests/ -q --tb=short`
-- `python scripts/ci/run_profile.py --profile sdk-contract --profile server-contract --profile provider-runtime`
-- `python scripts/ci/check_architecture_dependencies.py`
-- `python scripts/ci/check_no_legacy_terms.py`
-- `python tools/gen_openapi.py --check`
-- `python tools/gen_client_sdk.py --check`
-- `python tools/gen_typescript_sdk.py --check`
-- `python tools/gen_docs.py --check`
-- `cd panel && npm test && npm run build:local && npm run check:artifact`
+- `ruff check src tests scripts tools && ruff format --check src tests scripts tools`
+- `python3 -m pytest tests/ -q`
+- `python3 tools/gen_docs.py --check`
+- `python3 scripts/ci/check_no_legacy_terms.py`
+- `python3 scripts/ci/check_architecture_dependencies.py`
+- push `agent-first` 触发 `census.yml`（权威环境体检）

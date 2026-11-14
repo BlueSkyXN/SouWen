@@ -268,8 +268,33 @@ def get_config() -> SouWenConfig:
     kwargs: dict = _load_dotenv_config()
     kwargs.update(_load_yaml_config())
     kwargs.update(_load_env_mapping(dict(os.environ)))
+    _drop_removed_domain_defaults(kwargs)
 
     return SouWenConfig(**kwargs)
+
+
+_REMOVED_SEARCH_DOMAINS = frozenset({"images"})
+
+
+def _drop_removed_domain_defaults(kwargs: dict) -> None:
+    """剥离用户配置里已删除领域的默认候选条目（3.x 领域收敛的迁移语义）。
+
+    仅当条目是空列表时剥离——非空的自定义领域表仍然交给模型校验报错，
+    避免悄悄丢掉用户显式写的源候选。
+    """
+
+    defaults = kwargs.get("search_defaults")
+    if not isinstance(defaults, dict):
+        return
+    stale = [
+        domain
+        for domain in _REMOVED_SEARCH_DOMAINS
+        if isinstance(defaults.get(domain), (list, tuple)) and not defaults[domain]
+    ]
+    if not stale:
+        return
+    migrated = {domain: value for domain, value in defaults.items() if domain not in stale}
+    kwargs["search_defaults"] = migrated
 
 
 def reload_config() -> SouWenConfig:

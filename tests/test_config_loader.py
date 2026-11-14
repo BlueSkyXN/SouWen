@@ -320,3 +320,27 @@ class TestEnsureConfigFile:
         assert result == Path("souwen.yaml")
         # 确认未被覆盖
         assert "timeout: 88" in existing.read_text(encoding="utf-8")
+
+
+def test_removed_domain_empty_defaults_are_migrated(monkeypatch, tmp_path):
+    """老用户配置里的已删除领域（images）空默认表应被剥离而非致命报错。"""
+
+    from souwen.config import SouWenConfig
+    from souwen.config.loader import _drop_removed_domain_defaults
+
+    from souwen.config.models import DEFAULT_SEARCH_PROVIDERS
+
+    kwargs = {
+        "search_defaults": {
+            **{domain: list(providers) for domain, providers in DEFAULT_SEARCH_PROVIDERS.items()},
+            "images": [],
+        }
+    }
+    _drop_removed_domain_defaults(kwargs)
+    assert "images" not in kwargs["search_defaults"]
+    SouWenConfig(**kwargs)  # 不再因 extra=images 崩溃
+
+    # 非空的自定义表仍交模型校验（显式报错，不静默丢弃）
+    kwargs2 = {"search_defaults": {"web": [], "images": ["custom_source"]}}
+    _drop_removed_domain_defaults(kwargs2)
+    assert "images" in kwargs2["search_defaults"]

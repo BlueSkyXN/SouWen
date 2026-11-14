@@ -59,7 +59,7 @@ stdio 方式（Claude Code、Codex 等宿主）：
   "mcpServers": {
     "souwen": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen", "souwen", "mcp"]
+      "args": ["--from", "git+https://github.com/BlueSkyXN/SouWen@agent-first", "souwen", "mcp"]
     }
   }
 }
