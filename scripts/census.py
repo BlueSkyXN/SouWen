@@ -190,6 +190,11 @@ class Client:
             except urllib.error.URLError as exc:
                 reason = getattr(exc, "reason", exc)
                 raise CensusError(f"request failed: {type(reason).__name__}") from exc
+            except TimeoutError as exc:
+                # socket 超时不包在 URLError 里（urllib 只包连接阶段错误）。
+                # 单条探针超时是该 URL 的结果，不是脚本故障：转成 CensusError
+                # 让调用方记 FAIL，避免整轮体检因一个慢页面中断。
+                raise CensusError("request timed out") from exc
         raise CensusError("request attempts exhausted")
 
 

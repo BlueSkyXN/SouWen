@@ -147,9 +147,13 @@ jobs:
 
       - name: Run census (fetch mode)
         run: |
+          # fetch 模式的单请求最坏路径包含 builtin 阶梯重试 + browser 级
+          # Chromium 启动与渲染，服务端上限 30s，客户端必须留足余量，
+          # 否则脚本先超时、报告里出现假的 FAIL。
           python3 scripts/census.py \
             --base-url "http://127.0.0.1:${HOST_PORT}" \
             --bearer-token "$CENSUS_TOKEN" \
+            --request-timeout 90 \
             --mode fetch --label "${{ steps.label.outputs.label }}" \
             --json-file "reports/${{ steps.label.outputs.label }}/fetch.json" \
             --markdown-report "reports/${{ steps.label.outputs.label }}/fetch.md" \

@@ -199,3 +199,45 @@ class TestRender:
         assert "Bearer" not in markdown
         assert "warp-on" in markdown
         assert "| `src` | PASS |" in markdown
+
+
+class TestRequestTimeoutIsAProbeFailure:
+    """单请求超时必须记为该探针的 FAIL，不能让整轮体检崩溃。
+
+    回归：socket 超时抛的是 TimeoutError，不包在 urllib 的 URLError 里，
+    之前会直接冒泡终止 census 脚本（权威 run 43625095736 因此变红）。
+    """
+
+    def test_client_timeout_raises_census_error(self, monkeypatch):
+        client = census.Client(
+            "http://127.0.0.1:1", edge_token=None, app_token=None, timeout=0.01, min_interval=0
+        )
+
+        def boom(*_args, **_kwargs):
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr(census.urllib.request, "urlopen", boom)
+        with pytest.raises(census.CensusError) as exc:
+            client.json_request("/fetch", method="POST", payload={"url": "https://example.com"})
+        assert "timed out" in str(exc.value)
+
+    def test_fetch_probe_records_timeout_as_failure(self, monkeypatch):
+        client = census.Client(
+            "http://127.0.0.1:1", edge_token=None, app_token=None, timeout=0.01, min_interval=0
+        )
+
+        def boom(*_args, **_kwargs):
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr(census.urllib.request, "urlopen", boom)
+        outcome = census.run_fetch_probe(
+            client, url="https://example.com/slow", provider=None, min_chars=500
+        )
+        assert outcome.valid is False
+        assert "timed out" in (outcome.error or "")
+
+
+def test_fetch_mode_client_timeout_covers_browser_escalation():
+    """fetch 模式的默认请求超时必须覆盖 builtin 阶梯 + Chromium 启动。"""
+
+    assert census.DEFAULT_TIMEOUT_SECONDS >= 60.0
