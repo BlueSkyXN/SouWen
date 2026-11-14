@@ -1,10 +1,12 @@
 # 镜像发布（SPEC 8）：workflow_dispatch 手动触发，按指定 SHA 构建根镜像验证、
-# 并把该 SHA 的源码同步到 HFS Space。需要 HF secret（HFS_TOKEN / HFS_SPACE vars），
+# 并把该 SHA 发布到 HFS Space。需要 HF secret（HFS_TOKEN / HFS_SPACE vars），
 # 会改动线上 Space——首次运行须业主监督。本文件只写不跑（执行者未运行部署）。
 #
-# SHA 对应关系：整个流程 checkout 输入的 souwen_ref（默认 HEAD），镜像构建、
-# Space 同步与 SOUWEN_REF 注入都来自同一个 checkout，三者一致；非当前 SHA 的
-# 情况由 checkout 步骤显式校验（rev-parse HEAD 必须等于选定 SHA）。
+# SHA 对应关系：整个流程 checkout 输入的 souwen_ref（默认 HEAD），镜像构建用
+# 同一个 checkout 作构建上下文。Space 侧只同步两个构建上下文文件（Dockerfile
+# 取自 cloud/hfs/、entrypoint.sh），源码由该 Dockerfile 的 source-checkout 阶段
+# 按注入的 ARG SOUWEN_REF 自行 clone —— 因此 Space 构建的源码、镜像标签与
+# runtime 身份都指向选定 SHA。非当前 SHA 由 checkout 步骤显式校验。
 
 name: image
 
@@ -100,11 +102,12 @@ jobs:
           rm -rf /tmp/hfs-space
           git clone "https://oauth2:${HFS_TOKEN}@huggingface.co/spaces/${HFS_SPACE}" /tmp/hfs-space
           cd /tmp/hfs-space
-          # Space 仓库历史保留（README 元数据在根），同步选定 SHA 的树
-          rsync -a --delete \
-            --exclude='.git' --exclude='README.md' \
-            --exclude='local/' --exclude='souwen.yaml' --exclude='.env' \
-            "$GITHUB_WORKSPACE/" ./
+          # Space 构建上下文只需要两个文件：Dockerfile 与它 COPY 的 entrypoint.sh。
+          # 源码不 rsync：cloud/hfs/Dockerfile 的 source-checkout 阶段按
+          # ARG SOUWEN_REF 从仓库 clone 该 commit，这是 ref 的原生消费路径。
+          rm -f Dockerfile
+          cp "$GITHUB_WORKSPACE/cloud/hfs/Dockerfile" Dockerfile
+          cp "$GITHUB_WORKSPACE/entrypoint.sh" entrypoint.sh
           cat > README.md <<'EOF'
           ---
           title: SouWen 搜文
@@ -118,15 +121,24 @@ jobs:
 
           # SouWen 搜文 3.x — Agent 免费搜索与抓取
 
-          Docker SDK：`Dockerfile`（来自 cloud/hfs/）按其 `ARG SOUWEN_REF`
-          默认值克隆对应 commit 构建并运行 `souwen serve`（HTTP API + MCP
-          `/mcp`）。详细文档见 https://github.com/BlueSkyXN/SouWen
+          Docker SDK：根 `Dockerfile`（来自仓库的 `cloud/hfs/Dockerfile`）按其
+          `ARG SOUWEN_REF` 克隆对应 commit 构建并运行 `souwen serve`
+          （HTTP API + MCP `/mcp`）。详细文档见 https://github.com/BlueSkyXN/SouWen
           EOF
-          # ref 注入：改写 Space 端 Dockerfile 的 ARG 默认值（HF 工厂构建
-          # 消费该 ARG；未设置时 Dockerfile 自身校验拒绝全零值）。
+          # ref 注入：改写 Space 端 Dockerfile 的 ARG 默认值。cloud/hfs/Dockerfile
+          # 第 1 行就是这个 ARG（全零占位），HF 工厂构建会消费它；未注入时
+          # Dockerfile 自身校验拒绝全零值，构建失败而不是悄悄发布默认 HEAD。
           sed -i "s/^ARG SOUWEN_REF=.*/ARG SOUWEN_REF=${SOUWEN_REF}/" Dockerfile
           grep -q "^ARG SOUWEN_REF=${SOUWEN_REF}$" Dockerfile || {
             echo "failed to inject SOUWEN_REF into Space Dockerfile"; exit 1; }
+          # 校验 Space 侧入口与选定 SHA 一致：Dockerfile 只认注入的 ref，
+          # 且 entrypoint.sh 来自同一 checkout（与 source-checkout 的树同源）。
+          # 仓库里该文件是 100644，镜像内由 Dockerfile 的 chmod 置为可执行，
+          # 所以这里校验内容与镜像内的 chmod 指令，不校验 git 模式位。
+          grep -q 'git rev-parse HEAD' Dockerfile
+          grep -q 'chmod +x /usr/local/bin/entrypoint.sh' Dockerfile
+          test -s entrypoint.sh
+          head -n 1 entrypoint.sh | grep -q '^#!/bin/sh'
           git add -A
           if git diff --cached --quiet; then
             echo "Space tree already at ${SOUWEN_REF}"
