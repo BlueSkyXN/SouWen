@@ -35,58 +35,8 @@ class TestJuejinClient:
     def test_base_url(self, client):
         assert "api.juejin.cn" in client.BASE_URL
 
-    @pytest.mark.asyncio
-    async def test_search_success(self, client):
-        """正常搜索返回结果"""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "err_no": 0,
-            "err_msg": "success",
-            "data": [
-                {
-                    "result_model": {
-                        "article_id": "7001",
-                        "article_info": {
-                            "title": "Python 异步编程",
-                            "brief_content": "介绍 asyncio",
-                            "digg_count": 42,
-                            "view_count": 1200,
-                            "comment_count": 5,
-                            "ctime": "1700000000",
-                        },
-                        "author_user_info": {
-                            "user_name": "张三",
-                            "avatar_large": "",
-                            "description": "",
-                        },
-                        "category": {"category_name": "后端"},
-                        "tags": [
-                            {"tag_name": "Python"},
-                            {"tag_name": "异步"},
-                        ],
-                    },
-                    "title_highlight": "<em>Python</em> 异步编程",
-                    "content_highlight": "介绍 <em>asyncio</em> 的基本用法",
-                },
-            ],
-            "cursor": "1",
-            "has_more": False,
-        }
-
-        with patch.object(client, "_fetch", new_callable=AsyncMock, return_value=mock_response):
-            resp = await client.search("Python", max_results=10)
-
-        assert isinstance(resp, WebSearchResponse)
-        assert resp.source == "juejin"
-        assert resp.query == "Python"
-        assert len(resp.results) == 1
-        assert resp.results[0].title == "Python 异步编程"
-        assert resp.results[0].url == "https://juejin.cn/post/7001"
-        assert "asyncio" in resp.results[0].snippet
-        assert "后端" in resp.results[0].snippet
-        assert "Python" in resp.results[0].snippet
-        assert "张三" in resp.results[0].snippet
-        assert resp.results[0].engine == "juejin"
+    # 正常解析路径由 tests/test_web/test_real_response_fixtures.py 的
+    # 真实响应夹具覆盖（SPEC 7 / P4-2）；此处保留错误与边界行为分支。
 
     @pytest.mark.asyncio
     async def test_search_empty_results(self, client):
