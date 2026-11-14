@@ -89,8 +89,8 @@ souwen serve --port 8000
 | `/mcp` | MCP streamable HTTP |
 
 鉴权：配置 `user_password`（环境变量 `SOUWEN_USER_PASSWORD`）后，所有请求需
-`Authorization: Bearer <password>` 或 `X-SouWen-Token`；不配置则开放（沿用既有 user
-凭据校验行为，不放宽）。
+`Authorization: Bearer <password>` 或 `X-SouWen-Token`。未配置或无效凭据一律 401
+（fail-closed）；要把端点显式开放，把 `user_password` 设为空字符串 `""`。
 
 ## Python
 

@@ -76,8 +76,9 @@ souwen serve --port 8000
 | `/mcp` | MCP streamable HTTP |
 
 Auth: set `user_password` (env `SOUWEN_USER_PASSWORD`) and send
-`Authorization: Bearer <password>` or `X-SouWen-Token`; unset keeps the endpoint open
-(existing user-credential semantics, never loosened).
+`Authorization: Bearer <password>` or `X-SouWen-Token`. Unset or invalid credentials
+get 401 (fail-closed); set `user_password` to an empty string `""` to open the
+endpoint explicitly.
 
 ## Python
 
