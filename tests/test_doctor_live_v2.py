@@ -57,6 +57,18 @@ class TestPinnedPlannerInterface:
         planner.report_failure("h", EgressLevel.DIRECT)
 
 
+_SOURCE_BOUNDS = {
+    # yahoo 声明 max=proxy（源声明驱动，见 information_sources/yahoo/source.py）
+    "yahoo": EgressBounds(min_level=EgressLevel.IMPERSONATE, max_level=EgressLevel.PROXY),
+    # brave 声明 max=browser
+    "brave": EgressBounds(min_level=EgressLevel.IMPERSONATE, max_level=EgressLevel.BROWSER),
+}
+
+
+def _source_bounds(provider: str) -> EgressBounds:
+    return _SOURCE_BOUNDS.get(provider, EgressBounds())
+
+
 class _RecordingSearchService:
     """Fake search service that records the transport egress per source."""
 
@@ -74,6 +86,16 @@ class _RecordingSearchService:
             raise ProviderError(doctor.ProviderErrorCode.INVALID_UPSTREAM_RESPONSE)
         if outcome == "program_error":
             raise AttributeError("_PinnedPlanner object has no attribute")
+        # 走真实 planner：真实传输层（BaseScraper）在发请求前正是这样调用，
+        # 因此 doctor 报告的 used_level 必须来自这次实际 plan 的结果。
+        from souwen.common_runtime.egress import planner as planner_module
+
+        planner = planner_module._planner
+        if planner is not None:
+            host = {"yahoo": "search.yahoo.com", "brave": "search.brave.com"}.get(
+                provider, provider
+            )
+            planner.plan(host, _source_bounds(provider))
         page = _fake_page(provider)
         self.planned_hosts.add(provider)
         return page
@@ -410,13 +432,17 @@ def test_pinned_planner_reports_actual_clamped_level_through_real_scraper(monkey
 
 
 def test_report_used_level_uses_actual_not_requested(live_census_env, monkeypatch):
-    """run_live_census 的 used_level 赋值消费 actual_levels（requested→actual）。"""
+    """run_live_census 的 used_level 赋值消费 actual_levels（requested→actual）。
+
+    yahoo 声明 max=proxy：请求 browser 时实际执行 proxy，报告必须记 proxy 并
+    标注钳制。若这里记成 browser，就是 20261114 复核里发现的级别误标。
+    """
 
     reports = doctor.run_live_census(["browser"])
-    # brave 声明 max=browser（应记 browser）；yahoo max=proxy（应记 proxy 并标注钳制）
     by_source = {v.source: v for v in reports[0].verdicts}
     yahoo = by_source.get("yahoo")
-    if yahoo is not None and yahoo.used_level is not None:
-        assert yahoo.used_level == "proxy" or yahoo.used_level == "browser"
-        if yahoo.used_level == "proxy":
-            assert "clamped" in yahoo.detail or "bypasses" in yahoo.detail
+    assert yahoo is not None, "yahoo must be probed at the browser level"
+    assert yahoo.used_level == "proxy", (
+        f"used_level must be the executed level (proxy), got {yahoo.used_level!r}"
+    )
+    assert "clamped" in yahoo.detail or "bypasses" in yahoo.detail
