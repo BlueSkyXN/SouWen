@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import import_module
 
 from souwen.config import SouWenConfig
 from souwen.platform.provider_spi import (
@@ -27,6 +28,7 @@ _PATENT_PROVIDERS = {
     "epo_ops",
     "uspto_odp",
 }
+_FETCH_NAMESPACE = frozenset()
 _EXPECTED_CALLS = {
     "doaj": (("runtime",), {"page_size": 10, "page": 1}),
     "epo_ops": (("runtime",), {"range_begin": 1, "range_end": 10}),
@@ -77,8 +79,13 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
     constructor_calls, search_calls, closed = {}, {}, set()
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     for provider_id, global_name in _CLIENT_GLOBALS.items():
+        _source_ns = (
+            "souwen.providers.fetch_sources."
+            if provider_id in _FETCH_NAMESPACE
+            else "souwen.providers.information_sources."
+        )
         monkeypatch.setattr(
-            runtime_module,
+            import_module(f"{_source_ns}{provider_id}.register"),
             global_name,
             _fake_client(provider_id, constructor_calls, search_calls, closed),
         )
@@ -136,17 +143,15 @@ def test_every_real_batch_two_client_factory_constructs_and_closes_without_netwo
     runtime = runtime_module.build_target_runtime(_config())
 
     async def probe_and_close() -> None:
-        for (
-            manifest,
-            _spec,
-            _provider_type,
-            _client_factory,
-        ) in runtime_module._BATCH_TWO_SEARCH_BINDINGS:
-            probe = await runtime.manager.probe(
-                manifest.adapters[0].id,
-                ExecutionContext.with_timeout(5),
-            )
-            assert probe.status == "available"
+        from souwen.server.v2_runtime import _discover_register_modules
+
+        for module in _discover_register_modules():
+            if module.MANIFEST.id in _CLIENT_GLOBALS:
+                probe = await runtime.manager.probe(
+                    module.MANIFEST.adapters[0].id,
+                    ExecutionContext.with_timeout(5),
+                )
+                assert probe.status == "available"
         await runtime.close()
 
     asyncio.run(probe_and_close())

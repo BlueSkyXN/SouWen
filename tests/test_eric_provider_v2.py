@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import httpx
+from importlib import import_module
 import pytest
 
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
@@ -646,7 +647,11 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
             self.close_count += 1
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", RuntimeTransport)
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.eric.register"),
+        "HttpTransport",
+        RuntimeTransport,
+    )
     runtime = build_target_runtime(
         SouWenConfig(
             timeout=30,
@@ -725,8 +730,20 @@ async def test_disabled_eric_keeps_crossref_default_and_never_constructs_eric(mo
         raise AssertionError("disabled ERIC must not construct transport")
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr("souwen.server.v2_runtime.CrossrefClient", RuntimeCrossrefClient)
-    monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", forbidden_eric_transport)
+    from importlib import import_module
+
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.crossref.register"),
+        "CrossrefClient",
+        RuntimeCrossrefClient,
+    )
+    from importlib import import_module
+
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.eric.register"),
+        "HttpTransport",
+        forbidden_eric_transport,
+    )
     # 默认批次会并发执行前三个候选；把 paper 候选收窄到禁用的 eric 和打桩的 crossref，
     # 避免未打桩的 huggingface/openalex 发真实请求。
     defaults = {domain: list(ids) for domain, ids in DEFAULT_SEARCH_PROVIDERS.items()}
@@ -770,7 +787,11 @@ async def test_invalid_eric_transport_config_is_ineligible_before_factory_constr
         raise AssertionError("invalid ERIC config must fail during preflight")
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", forbidden_transport)
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.eric.register"),
+        "HttpTransport",
+        forbidden_transport,
+    )
     runtime = build_target_runtime(SouWenConfig(sources={"eric": {"timeout": 121}}))
 
     by_id = {item.provider: item for item in runtime.services.provider_items}

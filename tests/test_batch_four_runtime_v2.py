@@ -107,13 +107,15 @@ def test_batch_four_default_search_uses_only_registry_default_providers(
     constructor_calls, search_calls = [], {}
     closed: Counter[str] = Counter()
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
+    from importlib import import_module
+
     monkeypatch.setattr(
-        runtime_module,
+        import_module("souwen.providers.information_sources.datacite.register"),
         "DataCiteClient",
         _fake_client("datacite", constructor_calls, search_calls, closed),
     )
     monkeypatch.setattr(
-        runtime_module,
+        import_module("souwen.providers.information_sources.open_library.register"),
         "OpenLibraryClient",
         _fake_client("open_library", constructor_calls, search_calls, closed),
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import import_module
 from datetime import date
 
 import httpx
@@ -288,7 +289,11 @@ def test_delivery_explicit_patentsview_uses_lazy_secret_transport(monkeypatch) -
             return None
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", RuntimeTransport)
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.patentsview.register"),
+        "HttpTransport",
+        RuntimeTransport,
+    )
     runtime = build_target_runtime(
         SouWenConfig(sources={"patentsview": {"enabled": True, "api_key": "secret-canary"}})
     )

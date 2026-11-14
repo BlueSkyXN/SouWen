@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import import_module
 
 from souwen.config import SouWenConfig
 from souwen.providers.runtime_clients.models import (
@@ -108,8 +109,16 @@ def _fake_search_client(provider_id, calls, closed):
 
 def test_batch_one_catalog_and_explicit_search_fetch_are_wired(monkeypatch) -> None:
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr(runtime_module, "OstiClient", _OstiClient)
-    monkeypatch.setattr(runtime_module, "ArxivFulltextClient", _ArxivFulltextClient)
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.osti.register"),
+        "OstiClient",
+        _OstiClient,
+    )
+    monkeypatch.setattr(
+        import_module("souwen.providers.fetch_sources.arxiv_fulltext.register"),
+        "ArxivFulltextClient",
+        _ArxivFulltextClient,
+    )
     runtime = runtime_module.build_target_runtime(
         SouWenConfig(
             sources={
@@ -175,7 +184,11 @@ def test_pubmed_optional_key_is_resolved_without_becoming_required_or_public(mon
             return None
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr(runtime_module, "PubMedClient", _PubMedClient)
+    monkeypatch.setattr(
+        import_module("souwen.providers.information_sources.pubmed.register"),
+        "PubMedClient",
+        _PubMedClient,
+    )
     secret = "runtime-only-optional-key"
     runtime = runtime_module.build_target_runtime(SouWenConfig(pubmed_api_key=secret))
 
@@ -203,7 +216,7 @@ def test_every_batch_one_search_factory_constructs_dispatches_and_closes(monkeyp
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     for provider_id, global_name in _SEARCH_CLIENT_GLOBALS.items():
         monkeypatch.setattr(
-            runtime_module,
+            import_module(f"souwen.providers.information_sources.{provider_id}.register"),
             global_name,
             _fake_search_client(provider_id, calls, closed),
         )

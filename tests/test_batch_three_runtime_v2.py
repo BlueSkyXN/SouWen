@@ -28,6 +28,8 @@ from souwen.providers.runtime_clients.web import github as github_module
 from souwen.providers.runtime_clients.web import stackoverflow as stackoverflow_module
 
 
+_FETCH_NAMESPACE = frozenset({"jina_reader", "wayback"})
+
 _CLIENT_GLOBALS = {
     "github": "GitHubClient",
     "jina_reader": "JinaReaderClient",
@@ -39,15 +41,13 @@ _CLIENT_GLOBALS = {
 
 
 def _batch_three_manifests():
-    manifests = {
-        manifest.id: manifest
-        for manifest in (
-            *(binding[0] for binding in runtime_module._BATCH_THREE_SEARCH_ONLY_BINDINGS),
-            *(binding[0] for binding in runtime_module._BATCH_THREE_MULTI_BINDINGS),
-            *(binding[0] for binding in runtime_module._BATCH_THREE_FETCH_ONLY_BINDINGS),
-        )
-    }
-    return tuple(manifests[provider_id] for provider_id in sorted(manifests))
+    from souwen.server.v2_runtime import _discover_register_modules
+
+    return tuple(
+        module.MANIFEST
+        for module in sorted(_discover_register_modules(), key=lambda m: m.MANIFEST.id)
+        if module.MANIFEST.id in _CLIENT_GLOBALS
+    )
 
 
 def _configured(
@@ -133,11 +133,8 @@ def _fake_client(provider_id, constructor_calls, search_calls, fetch_calls, clos
 
 
 def _patch_fetch_validators(monkeypatch) -> None:
-    for manifest, *_rest in runtime_module._BATCH_THREE_MULTI_BINDINGS:
-        module = import_module(f"souwen.providers.information_sources.{manifest.id}.adapter")
-        monkeypatch.setattr(module, "validate_fetch_url", lambda _url: (True, ""))
-    for manifest, *_rest in runtime_module._BATCH_THREE_FETCH_ONLY_BINDINGS:
-        module = import_module(f"souwen.providers.fetch_sources.{manifest.id}.adapter")
+    for provider_id in _FETCH_NAMESPACE:
+        module = import_module(f"souwen.providers.fetch_sources.{provider_id}.adapter")
         if hasattr(module, "validate_fetch_url"):
             monkeypatch.setattr(module, "validate_fetch_url", lambda _url: (True, ""))
 
@@ -148,8 +145,13 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     _patch_fetch_validators(monkeypatch)
     for provider_id, global_name in _CLIENT_GLOBALS.items():
+        namespace = (
+            "souwen.providers.fetch_sources"
+            if provider_id in _FETCH_NAMESPACE
+            else "souwen.providers.information_sources"
+        )
         monkeypatch.setattr(
-            runtime_module,
+            import_module(f"{namespace}.{provider_id}.register"),
             global_name,
             _fake_client(provider_id, constructor_calls, search_calls, fetch_calls, closed),
         )
@@ -159,35 +161,28 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
     assert len(catalog) == 36
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
+    from souwen.server.v2_runtime import _discover_register_modules, search_domains_by_provider
+
+    _domains = search_domains_by_provider()
+    _search_ids = [pid for pid in _CLIENT_GLOBALS if pid not in _FETCH_NAMESPACE]
+    _fetch_ids = [pid for pid in _CLIENT_GLOBALS if pid in _FETCH_NAMESPACE]
+
     async def exercise() -> None:
-        for manifest, spec, *_rest in runtime_module._BATCH_THREE_SEARCH_ONLY_BINDINGS:
+        for provider_id in _search_ids:
             page = await runtime.services.search.search(
                 SearchRequest(
                     query="runtime",
-                    domains=(spec.domain,),
-                    providers=(ProviderRef(id=manifest.id, kind="search"),),
+                    domains=(_domains[provider_id],),
+                    providers=(ProviderRef(id=provider_id, kind="search"),),
                 ),
-                RequestContext(request_id=f"batch-three-search-{manifest.id}"),
-                ExecutionContext.with_timeout(5),
-            )
-            assert page.items
-        for manifest, search_spec, *_rest in runtime_module._BATCH_THREE_MULTI_BINDINGS:
-            page = await runtime.services.search.search(
-                SearchRequest(
-                    query="runtime",
-                    domains=(search_spec.domain,),
-                    providers=(ProviderRef(id=manifest.id, kind="search"),),
-                ),
-                RequestContext(request_id=f"batch-three-search-{manifest.id}"),
+                RequestContext(request_id=f"batch-three-search-{provider_id}"),
                 ExecutionContext.with_timeout(5),
             )
             assert page.items
 
-        fetch_manifests = [
-            *(binding[0] for binding in runtime_module._BATCH_THREE_MULTI_BINDINGS),
-            *(binding[0] for binding in runtime_module._BATCH_THREE_FETCH_ONLY_BINDINGS),
-        ]
-        for manifest in fetch_manifests:
+        registers = {m.MANIFEST.id: m for m in _discover_register_modules()}
+        for provider_id in _fetch_ids:
+            manifest = registers[provider_id].MANIFEST
             target = "https://1.1.1.1/page" if manifest.id == "deepwiki" else "https://1.1.1.1/page"
             batch = await runtime.services.fetch.fetch(
                 FetchRequest(
@@ -298,7 +293,7 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
 
         github = runtime.manager._runtimes["github-search"].instance._client._client
         stackoverflow = runtime.manager._runtimes["stackoverflow-search"].instance._client._client
-        wayback = runtime.manager._runtimes["wayback-fetch"].instance._client._client
+        wayback = runtime.manager._runtimes["wayback-fetch"].instance._client
         assert github.token == ""
         assert stackoverflow.api_key == ""
         assert wayback._resolved_base_url == "https://web.archive.org"
@@ -335,7 +330,11 @@ def test_batch_three_admits_proxy_only_when_manifest_supports_it(monkeypatch) ->
         async def close(self):
             return None
 
-    monkeypatch.setattr(runtime_module, "JinaReaderClient", JinaReader)
+    monkeypatch.setattr(
+        import_module("souwen.providers.fetch_sources.jina_reader.register"),
+        "JinaReaderClient",
+        JinaReader,
+    )
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(
         _configured(source_overrides={"jina_reader": {"proxy": reviewed_proxy}})
