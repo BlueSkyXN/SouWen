@@ -212,7 +212,6 @@ class RestJsonProviderSpec(_SpecModel):
         "code",
         "community",
         "wiki",
-        "images",
         "videos",
     ] = "paper"
     adapter_kind: Literal["generic_rest_json", "client_adapter"] = "generic_rest_json"
@@ -371,7 +370,6 @@ class ClientSearchProviderSpec(_ClientProviderSpec):
         "code",
         "community",
         "wiki",
-        "images",
         "videos",
     ] = "paper"
 

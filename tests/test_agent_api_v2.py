@@ -335,7 +335,7 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     }
 
     assert selected == expected
-    for domain in ("patent", "images", "videos"):
+    for domain in ("patent", "videos"):
         with pytest.raises(ProviderError) as empty_domain:
             selector.select_default(SearchRequest(query="default", domains=(domain,)))
         assert empty_domain.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE

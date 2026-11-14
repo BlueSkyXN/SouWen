@@ -118,7 +118,6 @@ SearchDomain: TypeAlias = Literal[
     "code",
     "community",
     "wiki",
-    "images",
     "videos",
 ]
 

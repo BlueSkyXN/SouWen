@@ -32,6 +32,5 @@ CENSUS_CANDIDATE_ORDER: dict[str, tuple[str, ...]] = {
     "code": ("stackoverflow", "github"),
     "community": ("juejin", "coolapk"),
     "wiki": ("wikipedia",),
-    "images": (),
     "videos": (),
 }

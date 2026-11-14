@@ -226,8 +226,8 @@ async def _probe_fetch_targets(runtime: TargetRuntime, queries: dict) -> list[Le
             )
             item = batch.items[0]
             valid = item.status == "success" and bool((item.content or "").strip())
-            detail = "" if valid else str(
-                getattr(getattr(item, "error", None), "code", "empty content")
+            detail = (
+                "" if valid else str(getattr(getattr(item, "error", None), "code", "empty content"))
             )
             outcome = "PASS" if valid else "FAIL"
             used = getattr(item.content_metadata, "egress", None) if item.content_metadata else None

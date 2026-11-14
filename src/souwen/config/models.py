@@ -29,7 +29,6 @@ SEARCH_DOMAINS = (
     "code",
     "community",
     "wiki",
-    "images",
     "videos",
 )
 DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(

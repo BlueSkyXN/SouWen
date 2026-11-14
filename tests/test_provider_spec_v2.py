@@ -212,7 +212,6 @@ def test_spec_manifest_validation_fails_closed_on_each_contract_axis(
         "code",
         "community",
         "wiki",
-        "images",
         "videos",
     ),
 )
