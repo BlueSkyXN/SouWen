@@ -174,6 +174,20 @@ jobs:
           echo "mcp without credential: $noauth"
           test "$noauth" = "401"
 
+      - name: Probe browser level availability inside the container
+        run: |
+          # browser 级是 fetch 升级与搜索兜底的最后一跳。它是否可用决定
+          # 报告里能否出现真实 browser 证据，所以把判定依据写进报告。
+          docker exec souwen python -c "
+          from souwen.common_runtime.provider_support.browser_fetch import chromium_available
+          import os, pathlib
+          root = os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or str(pathlib.Path.home()/'.cache'/'ms-playwright')
+          entries = sorted(p.name for p in pathlib.Path(root).iterdir()) if pathlib.Path(root).is_dir() else []
+          print('playwright_root:', root)
+          print('playwright_entries:', entries[:6])
+          print('chromium_available:', chromium_available())
+          " | tee "reports/${{ steps.label.outputs.label }}/browser-availability.txt"
+
       - name: Run doctor --live (per egress level)
         run: |
           docker exec souwen souwen doctor --live --level all \
