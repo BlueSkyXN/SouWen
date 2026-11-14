@@ -455,6 +455,16 @@ def _discover_source_modules() -> list[Any]:
     return modules
 
 
+def _publish_egress_bounds(manifests) -> None:
+    """把 manifest 声明的 min/max_egress 推进 common_runtime 注册表。"""
+    try:
+        from souwen.providers.catalog import register_manifest_egress_bounds
+
+        register_manifest_egress_bounds(tuple(manifests))
+    except Exception:  # pragma: no cover - manifest 损坏时回退默认边界
+        return
+
+
 def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
     manager = ProviderManager(
         config_resolver=_configuration_resolver(config),
@@ -490,6 +500,12 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         discovered_manifests.append(manifest)
 
     manager.discover(tuple(discovered_manifests))
+
+    # SPEC 5.2：阶梯边界来自 manifest 声明。common_runtime 不能反向 import
+    # providers，所以由这里把声明推进注册表。此前只有 agent 门面注册，
+    # serve/doctor 直接构建 runtime 时全部回退到默认上限（proxy），
+    # 导致 browser 级永远拿不到执行证据。
+    _publish_egress_bounds(discovered_manifests)
 
     search_selector = _build_search_selector(config)
     search = SearchModuleService(
