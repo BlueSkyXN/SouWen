@@ -183,7 +183,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
         registers = {m.MANIFEST.id: m for m in _discover_register_modules()}
         for provider_id in _fetch_ids:
             manifest = registers[provider_id].MANIFEST
-            target = "https://1.1.1.1/page" if manifest.id == "deepwiki" else "https://1.1.1.1/page"
+            target = "https://1.1.1.1/page"
             batch = await runtime.services.fetch.fetch(
                 FetchRequest(
                     targets=(target,),

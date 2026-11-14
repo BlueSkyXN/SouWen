@@ -22,14 +22,8 @@ from tests.support.provider_v2_conformance import (
 
 
 def _batch_three_definition(provider_id: str, provider_type: type) -> FetchConformanceDefinition:
-    target = (
-        "https://deepwiki.com/owner/repo" if provider_id == "deepwiki" else "https://1.1.1.1/page"
-    )
-    blocked_target = (
-        "https://example.com/owner/repo"
-        if provider_id == "deepwiki"
-        else "http://127.0.0.1/private"
-    )
+    target = "https://1.1.1.1/page"
+    blocked_target = "http://127.0.0.1/private"
     return FetchConformanceDefinition(
         provider_id=provider_id,
         build_provider=lambda client, enabled: provider_type(client, enabled=enabled),
