@@ -1,4 +1,4 @@
-# 镜像发布（SPEC 8）：workflow_dispatch 手动触发，构建根镜像并同步到 HFS。
+# 镜像发布（SPEC 8）：workflow_dispatch 手动触发，构建根镜像验证、并把 3.x 源码同步到 HFS Space。
 # 需要 HF 的 secret（HFS_TOKEN / HFS_SPACE），会改动线上 Space——首次运行须业主监督。
 # 本文件只写不跑（执行者未验证；按 PLAN 第 8 节交付约定列为未验证项）。
 
@@ -7,6 +7,10 @@ name: image
 on:
   workflow_dispatch:
     inputs:
+      souwen_ref:
+        description: "要发布的 40 位 commit SHA（默认取当前 HEAD）"
+        required: false
+        default: ""
       note:
         description: "本次发布说明（可选）"
         required: false
@@ -19,16 +23,24 @@ env:
   IMAGE_TAG: souwen-release:local
 
 jobs:
-  build-and-push:
+  build-and-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build root image
+      - name: Resolve SOUWEN_REF
+        run: |
+          REF="${{ github.event.inputs.souwen_ref }}"
+          if [ -z "$REF" ]; then REF="$(git rev-parse HEAD)"; fi
+          printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$' || {
+            echo "SOUWEN_REF must be a 40-hex commit SHA, got: $REF"; exit 1; }
+          echo "SOUWEN_REF=$REF" >> "$GITHUB_ENV"
+
+      - name: Build root image (same shape as census)
         run: |
           docker build \
-            --build-arg SOUWEN_SOURCE_SHA="$(git rev-parse HEAD)" \
+            --build-arg SOUWEN_SOURCE_SHA="$SOUWEN_REF" \
             -t "$IMAGE_TAG" .
 
       - name: Smoke /healthz
@@ -54,11 +66,53 @@ jobs:
           path: /tmp/souwen-image.tar.gz
           retention-days: 7
 
-      # HFS 同步：需要业主配置 secret 后启用。
-      # 登录 Registry 写入 Space 的镜像由 Space 的 Dockerfile 拉取源码构建，
-      # 因此这里的“同步”以触发 Space 重启 + 源码 SHA 注入为准。
-      - name: Trigger HFS Space restart
-        if: ${{ vars.HFS_SPACE != '' }}
+      # ---- HFS 同步：Space 的 Dockerfile 从 git ref 构建源码，因此
+      # "同步" = 推送 3.x 树到 Space 仓库 + README 元数据 + 注入 SOUWEN_REF，
+      # 再触发一次工厂重启让它按新 ref 构建。不用重启冒充部署。
+      - name: Sync 3.x source to HFS Space
+        if: ${{ vars.HFS_SPACE != '' && secrets.HFS_TOKEN != '' }}
+        env:
+          HFS_TOKEN: ${{ secrets.HFS_TOKEN }}
+          HFS_SPACE: ${{ vars.HFS_SPACE }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "souwen-release-bot"
+          git config --global user.email "noreply@blueskyxn.github.com"
+          rm -rf /tmp/hfs-space
+          git clone "https://oauth2:${HFS_TOKEN}@huggingface.co/spaces/${HFS_SPACE}" /tmp/hfs-space
+          cd /tmp/hfs-space
+          # Space 仓库历史保留（README 元数据在根），只同步 3.x 树
+          rsync -a --delete --exclude='.git' --exclude='README.md' "$GITHUB_WORKSPACE/" ./
+          cat > README.md <<'EOF'
+          ---
+          title: SouWen 搜文
+          emoji: 🔍
+          colorFrom: blue
+          colorTo: purple
+          sdk: docker
+          app_port: 49265
+          pinned: false
+          ---
+
+          # SouWen 搜文 3.x — Agent 免费搜索与抓取
+
+          Docker SDK：容器入口从仓库按 `SOUWEN_REF` 构建源码并运行
+          `souwen serve`（HTTP API + MCP `/mcp`）。鉴权、WARP、出口阶梯
+          与根 Dockerfile 一致。详细文档见
+          https://github.com/BlueSkyXN/SouWen
+          EOF
+          # Space 构建参数：cloud/hfs/Dockerfile 需要 40 位 ref
+          printf 'SOUWEN_REF=%s\n' "$SOUWEN_REF" > .space_build_args
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Space tree already up to date at $SOUWEN_REF"
+          else
+            git commit -m "release: sync SouWen 3.x at ${SOUWEN_REF}"
+            git push origin main
+          fi
+
+      - name: Restart HFS Space factory build
+        if: ${{ vars.HFS_SPACE != '' && secrets.HFS_TOKEN != '' }}
         env:
           HFS_TOKEN: ${{ secrets.HFS_TOKEN }}
           HFS_SPACE: ${{ vars.HFS_SPACE }}
