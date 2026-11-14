@@ -19,6 +19,8 @@ from pathlib import Path
 from souwen.config import SouWenConfig, get_config
 from souwen.platform.provider_spi import (
     ExecutionContext,
+    ProviderError,
+    ProviderErrorCode,  # noqa: F401 — tests/诊断脚本按 doctor.ProviderErrorCode 引用
     ProviderRef,
     RequestContext,
     SearchPageRequest,
@@ -44,6 +46,8 @@ class LevelVerdict:
     detail: str = ""
     # 实际作用到传输的级别；None = 该源的客户端不经出口阶梯（如纯 API 客户端）
     used_level: str | None = None
+    # 程序错误（planner/接口断裂等）与上游失败分开：前者不算体检判定
+    program_error: str | None = None
 
 
 @dataclass(slots=True)
@@ -55,7 +59,7 @@ class LiveReport:
 
     @property
     def counts(self) -> dict[str, int]:
-        counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
+        counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "ERROR": 0, "SKIP": 0}
         for verdict in self.verdicts:
             counts[verdict.outcome] = counts.get(verdict.outcome, 0) + 1
         return counts
@@ -66,26 +70,44 @@ class _PinnedPlanner:
 
     记录请求过 plan 的主机：源声明的传输主机若从未出现，说明其客户端
     不走出口阶梯，verdict 如实标注 used_level=None。
+    实现 BaseScraper 依赖的完整 planner 接口（effective_bounds/plan/
+    report_*），否则 _fetch 在 plan 之前就会 AttributeError。
     """
 
     def __init__(self, level_name: str, proxy_provider) -> None:
         self.level_name = level_name
         self._proxy_provider = proxy_provider
         self.planned_hosts: set[str] = set()
+        self.program_errors: list[str] = []
+
+    def effective_bounds(self, bounds):
+        from souwen.common_runtime.egress.levels import EgressBounds, EgressLevel
+
+        # 钳到源声明的范围内：请求比源 min 低的级别没有意义，
+        # 高于源 max 的级别说明该源本来就不允许（SKIP 语义在 doctor 层处理）。
+        pinned = parse_level(self.level_name)
+        low = max(int(bounds.min_level), min(int(bounds.max_level), int(pinned)))
+        high = min(int(bounds.max_level), max(int(bounds.min_level), int(pinned)))
+        return EgressBounds(min_level=EgressLevel(low), max_level=EgressLevel(max(low, high)))
 
     def plan(self, host: str, bounds):
-        from souwen.common_runtime.egress.levels import parse_egress_level
-
         self.planned_hosts.add((host or "").lower().lstrip("."))
-        level = parse_egress_level(self.level_name)
-        proxy = self._proxy_provider() if level.label == "proxy" else None
-        return _Decision(level, proxy, "doctor-pinned")
+        pinned = parse_level(self.level_name)
+        clamped = self.effective_bounds(bounds).clamp(pinned)
+        proxy = self._proxy_provider() if pinned.label == "proxy" and pinned is clamped else None
+        return _Decision(clamped, proxy, "doctor-pinned")
 
     def report_success(self, host, level) -> None:
         return None
 
     def report_failure(self, host, level) -> None:
         return None
+
+
+def parse_level(name: str):
+    from souwen.common_runtime.egress.levels import parse_egress_level
+
+    return parse_egress_level(name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +148,7 @@ def _item_valid(item) -> bool:
 async def _probe_source(runtime: TargetRuntime, source: str, queries: list[str]) -> LevelVerdict:
     valid = 0
     detail = ""
+    program_error: str | None = None
     for query in queries[:_PROBES_PER_SOURCE]:
         request = SearchRequest(
             query=query,
@@ -140,9 +163,14 @@ async def _probe_source(runtime: TargetRuntime, source: str, queries: list[str])
                 ExecutionContext.with_timeout(30),
             )
         except Exception as exc:
-            code = getattr(exc, "code", None)
-            detail = str(getattr(code, "value", type(exc).__name__))
-            continue
+            if isinstance(exc, ProviderError):
+                code = getattr(exc, "code", None)
+                detail = str(getattr(code, "value", type(exc).__name__))
+                continue
+            # 程序错误（AttributeError/TypeError/接口断裂）不算体检数据，
+            # 显式记录避免把实现缺陷吞成"源失效"。
+            program_error = f"{type(exc).__name__}: {exc}"[:200]
+            break
         if sum(1 for item in page.items if _item_valid(item)) >= _MIN_VALID_RESULTS:
             valid += 1
         elif not detail:
@@ -150,10 +178,11 @@ async def _probe_source(runtime: TargetRuntime, source: str, queries: list[str])
     return LevelVerdict(
         source=source,
         level="",
-        outcome=_verdict(valid, _PROBES_PER_SOURCE),
+        outcome=("ERROR" if program_error else _verdict(valid, _PROBES_PER_SOURCE)),
         valid_count=valid,
         total=_PROBES_PER_SOURCE,
         detail=detail,
+        program_error=program_error,
     )
 
 
@@ -267,14 +296,23 @@ def print_live_reports(reports: list[LiveReport], *, json_file: str | None = Non
         counts = report.counts
         print(
             f"\n== egress level {report.level} ({report.duration_seconds}s) "
-            f"PASS={counts.get('PASS', 0)} WARN={counts.get('WARN', 0)} FAIL={counts.get('FAIL', 0)} =="
+            f"PASS={counts.get('PASS', 0)} WARN={counts.get('WARN', 0)} "
+            f"FAIL={counts.get('FAIL', 0)} ERROR={counts.get('ERROR', 0)} "
+            f"SKIP={counts.get('SKIP', 0)} =="
         )
         for verdict in sorted(report.verdicts, key=lambda v: (v.outcome != "PASS", v.source)):
-            marker = {"PASS": "+", "WARN": "~", "FAIL": "x", "SKIP": "-"}.get(verdict.outcome, "?")
+            marker = {"PASS": "+", "WARN": "~", "FAIL": "x", "SKIP": "-", "ERROR": "!"}.get(
+                verdict.outcome, "?"
+            )
             used = verdict.used_level or "no-ladder"
+            detail = verdict.detail
+            if verdict.program_error:
+                detail = (
+                    detail + "; " if detail else ""
+                ) + f"PROGRAM-ERROR {verdict.program_error}"
             print(
                 f"  [{marker}] {verdict.source:22} {verdict.valid_count}/{verdict.total} "
-                f"used={used:11} {verdict.detail}"
+                f"used={used:11} {detail}"
             )
     if json_file:
         payload = [
