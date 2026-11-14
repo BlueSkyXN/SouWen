@@ -32,7 +32,7 @@ verify.
 | `src/souwen/modules/` | Search orchestration/fallback/projection; fetch reader chain | no | Changing search or fetch orchestration |
 | `src/souwen/common_runtime/` | Transport, egress ladder, pinning proxy, SSRF, rate limiting | no | Changing transport/security/resilience infrastructure |
 | `src/souwen/config/` | `SouWenConfig`, template, loading, validators | yes | Changing config fields or auth config |
-| `src/souwen/providers/` | One package per source (`register.py` + manifest/spec/adapter) + private runtime clients | no | Adding/removing sources or changing adapters |
+| `src/souwen/providers/` | One package per source: a single `source.py` (declaration + client + provider + registration) + shared runtime helpers | no | Adding/removing sources or changing adapters |
 | `src/souwen/platform/` | Provider SPI, spec, manifest registry, manager | no | Changing provider lifecycle or catalog semantics |
 | `src/souwen/server/` | FastAPI app, auth, limiter, MCP server, doctor, v2 runtime wiring | yes | Changing API surface, auth, or runtime wiring |
 | `tests/` | Deterministic pytest suite | yes | Adding/changing tests |
@@ -73,10 +73,12 @@ read because it exists in the repository.
 - Default communication with the user is Chinese; keep code, paths, commands and
   API names in English.
 - Check `git status --short` before edits. Preserve unrelated user changes.
-- Each source package owns a `register.py` (MANIFEST / SPEC / PROVIDER_TYPE /
-  `build_provider`, optional `resolve_configuration`); `manifest.py` stays the
-  identity source of truth and `server/v2_runtime.py` registers everything by
-  directory discovery — adding a source must not touch code outside its package.
+- Each source package owns exactly one `source.py` holding MANIFEST, SPEC,
+  PROVIDER_TYPE and `build_provider`, plus optional hooks (`resolve_configuration`,
+  `site_handler_matches`, `FALLBACK_ORDER`, `FALLBACK_REQUIRES_OPT_IN`,
+  `READINESS_REQUIRED`, `SELF_HOSTED_CONFIG_FIELD`, `enabled_by_default`).
+  `server/v2_runtime.py` registers everything by directory discovery and holds
+  no source-id branches — adding a source must not touch code outside its package.
 - Keep pytest deterministic: no real internet, browser runtime, production
   secrets, or HOME config dependency. Live checks belong to `census.py` /
   `doctor --live` / Actions.

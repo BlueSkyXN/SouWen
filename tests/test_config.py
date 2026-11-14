@@ -318,11 +318,11 @@ class TestSourceChannelConfig:
 
         cfg = SouWenConfig(
             sources={
-                "google_patents": SourceChannelConfig(enabled=False),
+                "brave": SourceChannelConfig(enabled=False),
             }
         )
-        assert cfg.is_source_enabled("duckduckgo") is True
-        assert cfg.is_source_enabled("google_patents") is False
+        assert cfg.is_source_enabled("baidu") is True
+        assert cfg.is_source_enabled("brave") is False
 
     def test_is_source_enabled_uses_registry_default_until_explicitly_overridden(self):
         cfg = SouWenConfig(

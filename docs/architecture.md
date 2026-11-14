@@ -26,7 +26,7 @@ modules/fetch（站点处理器 → 通用抓取 → 提取链 → 分页缓存�
 platform/（provider SPI、manifest registry、manager）
                          │
                          ▼
-providers/*（一个源一个包：manifest + spec + adapter）+ runtime_clients（私有 client）
+providers/*（一个源一个包，包内单文件 source.py）+ runtime_clients（共享传输助手）
 common_runtime/（transport、egress 阶梯、SSRF、限流、WARP 支持）
 ```
 
@@ -39,12 +39,24 @@ common_runtime/（transport、egress 阶梯、SSRF、限流、WARP 支持）
 
 ## 2. Provider 与源声明
 
-每个源一个 package（`providers/information_sources/<id>/` 或 `fetch_sources/<id>/`）：
+每个源一个 package（`providers/information_sources/<id>/` 或 `fetch_sources/<id>/`），
+包内只有一个 `source.py`，它同时承载四件事：
 
-- `manifest.py` 是身份唯一事实源：id、capability、adapter、可选 Key，以及
-  `min_egress`/`max_egress`（出口阶梯边界，SPEC 5.2）。
-- `providers/catalog.py` 只做目录发现（导入各包的 manifest），不导入 adapter 或 client。
-- 私有传输与解析在 `providers/runtime_clients/`，不属于公共 API。
+- **声明**：`MANIFEST`（id、capability、adapter、可选 Key、`min_egress`/`max_egress`、
+  `enabled_by_default`）与 `SPEC`（传输形态、域名、操作）。
+- **请求构造与解析**：该源的传输 client 及其响应解析，原先分散在
+  `providers/runtime_clients/` 的源专属代码已迁入本文件。
+- **Provider 桥**：`PROVIDER_TYPE` 与错误映射。
+- **注册入口**：`build_provider(configuration, secrets, config, reviewed_proxy)`。
+
+可选钩子让源目录之外的组合根不必按源 id 写分支：`resolve_configuration`（自定义配置
+解析）、`site_handler_matches`（抓取站点处理器）、`FALLBACK_ORDER` /
+`FALLBACK_REQUIRES_OPT_IN`（最后兜底顺序）、`READINESS_REQUIRED`（就绪探针必须项）、
+`SELF_HOSTED_CONFIG_FIELD`（自建实例的地址字段）。
+
+`server/v2_runtime.py` 按目录发现 `source.py`，不持有任何源 id 的分派；`providers/catalog.py`
+只做目录发现。新增一个源 = 新增一个 `source.py` 加它的真实响应夹具与测试，不改源目录
+之外的业务代码。
 
 ## 3. 出口阶梯（核心能力）
 
@@ -64,8 +76,9 @@ common_runtime/（transport、egress 阶梯、SSRF、限流、WARP 支持）
 
 MCP 恰好两个工具：`search(query, domain, limit)`、`fetch(url, max_chars, start)`；源清单
 走 `souwen://sources` 资源。HTTP 侧是 `POST /search`、`POST /fetch`、`GET /sources`、
-`GET /healthz` 与 `/mcp`（streamable HTTP）。鉴权配置 `user_password` 后全部入口要求
-Bearer/token；未配置则开放（沿用既有行为，不放宽）。
+`GET /healthz` 与 `/mcp`（streamable HTTP）。鉴权是 fail-closed：配置了
+`user_password` 之后全部入口要求 Bearer token，缺少或错误的凭据一律 401；
+显式把 `user_password` 留空是刻意的"开放部署"，此时不校验（既有语义，不放宽）。
 
 ## 5. 体检与判定
 
@@ -83,10 +96,13 @@ Bearer/token；未配置则开放（沿用既有行为，不放宽）。
 
 ## 6. 新增一个源
 
-1. 在 `providers/<namespace>/<id>/` 增加 `manifest.py`（声明领域、主机、egress 边界、
-   可选 Key）与 adapter；需要私有传输时放 `runtime_clients/`。
+1. 在 `providers/<namespace>/<id>/` 增加一个 `source.py`：`MANIFEST`（领域、主机、
+   egress 边界、可选 Key、`enabled_by_default`）、`SPEC`、传输 client 与解析、
+   `PROVIDER_TYPE`、`build_provider`。需要站点处理器、兜底顺序或自建实例字段时，
+   加对应的可选钩子，而不是去改 `server/v2_runtime.py`。
 2. 为解析函数补真实响应夹具测试（`tests/fixtures/`）。
-3. 跑 `pytest`、`gen_docs --check`、架构与残留门禁；push 后由 census 验证真实可用性，
+3. 在 `scripts/census/queries.json` 的 `sources` 里登记该源，让体检覆盖它。
+4. 跑 `pytest`、`gen_docs --check`、架构与残留门禁；push 后由 census 验证真实可用性，
    连续 FAIL 会被删除——本仓库不保留没验证过能用的源。
 
 ## 7. 验证护栏

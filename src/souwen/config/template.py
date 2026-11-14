@@ -117,10 +117,10 @@ search_defaults:
 # proxy 取值: inherit(继承全局) | none | warp | socks5://... | http://...
 # 示例:
 # sources:
-#   duckduckgo:
+#   baidu:
 #     enabled: true
 #     proxy: warp
 #     http_backend: curl_cffi
-#   google_patents:
+#   patentsview:
 #     enabled: false
 """

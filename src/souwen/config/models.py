@@ -189,7 +189,7 @@ class SouWenConfig(BaseModel):
     # ===== HTTP 后端 =====
     # 全局默认 HTTP 后端:auto(自动选择)| curl_cffi | httpx
     default_http_backend: str = "auto"
-    # 按源覆盖,例如 {"duckduckgo": "httpx", "google_patents": "curl_cffi"}
+    # 按源覆盖,例如 {"baidu": "httpx", "arxiv": "curl_cffi"}
     http_backend: dict[str, str] = Field(default_factory=dict)
 
     # ===== 服务（认证） =====

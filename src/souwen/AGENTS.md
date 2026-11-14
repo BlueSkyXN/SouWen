@@ -9,8 +9,10 @@ Read this card when changing package-level APIs, imports, shared models or cross
 - `modules/search|fetch` — orchestration; `modules/search/data/census_order.py` holds the
   census-derived candidate order.
 - `common_runtime/` — transport, egress ladder, SSRF, resilience.
-- `providers/` — one package per source; `manifest.py` is the identity source of truth.
-- `platform/` — SPI/spec/registry/manager.
+- `providers/` — one package per source; each package's single `source.py` holds the
+  manifest declaration, transport client, provider and registration.
+- `platform/` — SPI/spec/registry/manager (consumed by `source.py`, not a second
+  source declaration).
 - `server/` — FastAPI app, MCP server, doctor, runtime wiring.
 
 ## Local invariants
