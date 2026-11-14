@@ -1,7 +1,11 @@
-"""Built-in HAL Provider v2 package."""
+"""Source package: hal（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import HalClientProtocol, HalSearchProvider
-from .manifest import HAL_PROVIDER_MANIFEST
-from .spec import HAL_PROVIDER_SPEC
-
-__all__ = ["HAL_PROVIDER_MANIFEST", "HAL_PROVIDER_SPEC", "HalClientProtocol", "HalSearchProvider"]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    HAL_PROVIDER_MANIFEST,
+    HAL_PROVIDER_SPEC,
+    _SPEC,
+    HalClient,
+    HalClientProtocol,
+    HalSearchProvider,
+    build_provider,
+)

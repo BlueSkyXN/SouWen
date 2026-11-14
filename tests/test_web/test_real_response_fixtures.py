@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from souwen.providers.runtime_clients.web.baidu import BaiduClient
-from souwen.providers.runtime_clients.web.juejin import JuejinClient
+from souwen.providers.information_sources.baidu.source import BaiduClient
+from souwen.providers.information_sources.juejin.source import JuejinClient
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 

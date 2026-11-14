@@ -110,12 +110,12 @@ def _fake_search_client(provider_id, calls, closed):
 def test_batch_one_catalog_and_explicit_search_fetch_are_wired(monkeypatch) -> None:
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.osti.register"),
+        import_module("souwen.providers.information_sources.osti.source"),
         "OstiClient",
         _OstiClient,
     )
     monkeypatch.setattr(
-        import_module("souwen.providers.fetch_sources.arxiv_fulltext.register"),
+        import_module("souwen.providers.fetch_sources.arxiv_fulltext.source"),
         "ArxivFulltextClient",
         _ArxivFulltextClient,
     )
@@ -185,7 +185,7 @@ def test_pubmed_optional_key_is_resolved_without_becoming_required_or_public(mon
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.pubmed.register"),
+        import_module("souwen.providers.information_sources.pubmed.source"),
         "PubMedClient",
         _PubMedClient,
     )
@@ -216,7 +216,7 @@ def test_every_batch_one_search_factory_constructs_dispatches_and_closes(monkeyp
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     for provider_id, global_name in _SEARCH_CLIENT_GLOBALS.items():
         monkeypatch.setattr(
-            import_module(f"souwen.providers.information_sources.{provider_id}.register"),
+            import_module(f"souwen.providers.information_sources.{provider_id}.source"),
             global_name,
             _fake_search_client(provider_id, calls, closed),
         )

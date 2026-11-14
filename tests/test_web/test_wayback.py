@@ -12,7 +12,7 @@ from souwen.providers.runtime_clients.models import (
     WaybackSaveResult,
     WaybackSnapshot,
 )
-from souwen.providers.runtime_clients.web.wayback import WaybackClient
+from souwen.providers.fetch_sources.wayback.source import WaybackClient
 
 
 class TestWaybackClient:

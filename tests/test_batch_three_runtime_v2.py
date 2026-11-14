@@ -24,8 +24,8 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 from souwen.server import v2_runtime as runtime_module
-from souwen.providers.runtime_clients.web import github as github_module
-from souwen.providers.runtime_clients.web import stackoverflow as stackoverflow_module
+from souwen.providers.information_sources.github import source as github_module
+from souwen.providers.information_sources.stackoverflow import source as stackoverflow_module
 
 
 _FETCH_NAMESPACE = frozenset({"jina_reader", "wayback"})
@@ -41,11 +41,11 @@ _CLIENT_GLOBALS = {
 
 
 def _batch_three_manifests():
-    from souwen.server.v2_runtime import _discover_register_modules
+    from souwen.server.v2_runtime import _discover_source_modules
 
     return tuple(
         module.MANIFEST
-        for module in sorted(_discover_register_modules(), key=lambda m: m.MANIFEST.id)
+        for module in sorted(_discover_source_modules(), key=lambda m: m.MANIFEST.id)
         if module.MANIFEST.id in _CLIENT_GLOBALS
     )
 
@@ -134,7 +134,7 @@ def _fake_client(provider_id, constructor_calls, search_calls, fetch_calls, clos
 
 def _patch_fetch_validators(monkeypatch) -> None:
     for provider_id in _FETCH_NAMESPACE:
-        module = import_module(f"souwen.providers.fetch_sources.{provider_id}.adapter")
+        module = import_module(f"souwen.providers.fetch_sources.{provider_id}.source")
         if hasattr(module, "validate_fetch_url"):
             monkeypatch.setattr(module, "validate_fetch_url", lambda _url: (True, ""))
 
@@ -151,7 +151,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
             else "souwen.providers.information_sources"
         )
         monkeypatch.setattr(
-            import_module(f"{namespace}.{provider_id}.register"),
+            import_module(f"{namespace}.{provider_id}.source"),
             global_name,
             _fake_client(provider_id, constructor_calls, search_calls, fetch_calls, closed),
         )
@@ -161,7 +161,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
     assert len(catalog) == 36
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
-    from souwen.server.v2_runtime import _discover_register_modules, search_domains_by_provider
+    from souwen.server.v2_runtime import _discover_source_modules, search_domains_by_provider
 
     _domains = search_domains_by_provider()
     _search_ids = [pid for pid in _CLIENT_GLOBALS if pid not in _FETCH_NAMESPACE]
@@ -180,7 +180,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
             )
             assert page.items
 
-        registers = {m.MANIFEST.id: m for m in _discover_register_modules()}
+        registers = {m.MANIFEST.id: m for m in _discover_source_modules()}
         for provider_id in _fetch_ids:
             manifest = registers[provider_id].MANIFEST
             target = "https://1.1.1.1/page"
@@ -197,10 +197,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
         await runtime.close()
 
     asyncio.run(exercise())
-    assert set(search_calls) == {
-        *(binding[0].id for binding in runtime_module._BATCH_THREE_SEARCH_ONLY_BINDINGS),
-        *(binding[0].id for binding in runtime_module._BATCH_THREE_MULTI_BINDINGS),
-    }
+    assert set(search_calls) == set(_search_ids)
     assert search_calls["youtube"] == (
         ("runtime",),
         {"max_results": 10, "enrich": False},
@@ -210,22 +207,14 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
         for provider_id, call in search_calls.items()
         if provider_id != "youtube"
     )
-    assert set(fetch_calls) == {
-        *(binding[0].id for binding in runtime_module._BATCH_THREE_MULTI_BINDINGS),
-        *(binding[0].id for binding in runtime_module._BATCH_THREE_FETCH_ONLY_BINDINGS),
-    }
+    assert set(fetch_calls) == set(_fetch_ids)
     target = "https://1.1.1.1/page"
     assert fetch_calls == {
         "jina_reader": ("fetch", (target,), {"timeout": 30.0}),
         "wayback": ("fetch", (target,), {"timeout": 30.0}),
     }
     constructed = Counter(provider_id for provider_id, _args, _kwargs in constructor_calls)
-    assert constructed == Counter(
-        {
-            **{manifest.id: 1 for manifest in _batch_three_manifests()},
-            **{manifest.id: 2 for manifest, *_rest in runtime_module._BATCH_THREE_MULTI_BINDINGS},
-        }
-    )
+    assert constructed == Counter({manifest.id: 1 for manifest in _batch_three_manifests()})
     assert closed == constructed
 
 
@@ -331,7 +320,7 @@ def test_batch_three_admits_proxy_only_when_manifest_supports_it(monkeypatch) ->
             return None
 
     monkeypatch.setattr(
-        import_module("souwen.providers.fetch_sources.jina_reader.register"),
+        import_module("souwen.providers.fetch_sources.jina_reader.source"),
         "JinaReaderClient",
         JinaReader,
     )

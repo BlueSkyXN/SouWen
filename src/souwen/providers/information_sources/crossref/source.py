@@ -1,0 +1,456 @@
+"""crossref（SPEC 7 单模块形态：声明 + 请求构造 + 解析 + 注册）。
+
+源的全部定义在此：manifest/spec 声明、传输 client、Provider 桥与
+``build_provider`` 注册入口。``server.v2_runtime`` 按目录发现本文件，
+源目录之外没有按源 id 的业务分派。
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections.abc import Sequence, Mapping
+from souwen.common_runtime.provider_support.exceptions import NotFoundError, ParseError
+from souwen.common_runtime.provider_support.http_client import SouWenHttpClient
+from souwen.common_runtime.provider_support.rate_limiter import TokenBucketLimiter
+from souwen.config import get_config, SouWenConfig
+from souwen.platform.provider_spec import (
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
+    ClientSearchProvider,
+    ClientSearchSpec,
+)
+from souwen.platform.provider_spec.models import HttpOperation
+from souwen.platform.provider_spi import (
+    PageInfo,
+    Provenance,
+    RequestContext,
+    SearchAttributes,
+    SearchIdentifier,
+    SearchItem,
+    SearchMeta,
+    SearchPage,
+    SearchRequest,
+)
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
+from typing import Any, Protocol
+
+
+from souwen.platform.manifest_registry import ProviderManifest
+
+CROSSREF_PROVIDER_MANIFEST = ProviderManifest.model_validate(
+    {
+        "schema_version": 2,
+        "id": "crossref",
+        "version": "2.0.0rc6",
+        "contract_version": "provider-v2",
+        "capabilities": ["search"],
+        "adapters": [
+            {
+                "id": "crossref-search",
+                "capability": "search",
+                "export": "CrossrefSearchProvider",
+                "availability": "configured",
+            }
+        ],
+        "configuration": {
+            "schema_reference": "crossref-provider-config-v1",
+            "unknown_key_policy": "reject",
+            "non_secret_keys": ["enabled"],
+        },
+        "secrets": {"references": []},
+        "network": {
+            "egress_hosts": ["api.crossref.org"],
+            "min_egress": "impersonate",
+            "max_egress": "impersonate",
+            "proxy_supported": False,
+            "browser_required": False,
+        },
+        "risk": {"authenticated": False, "costed": False},
+        "observability": {"dimensions": ["provider", "adapter", "capability", "outcome"]},
+        "compatibility": {
+            "contract_versions": ["provider-v2"],
+            "config_schema_versions": ["crossref-provider-config-v1"],
+        },
+    }
+)
+
+
+CROSSREF_PROVIDER_SPEC = ClientSearchProviderSpec(
+    provider_id="crossref",
+    adapter_id="crossref-search",
+    review_status="reviewed_adapter",
+    adapter_reason="existing free-form filters and DOI-only canonical identity require custom projection",
+    transport=ClientTransportDeclaration(
+        scheme="https",
+        host="api.crossref.org",
+        base_path="/",
+        protocol="json",
+        operations=(HttpOperation(method="GET", endpoint="/works"),),
+    ),
+    configuration_keys=("enabled",),
+)
+
+
+logger = logging.getLogger(__name__)
+
+_BASE_URL = "https://api.crossref.org"
+
+_DEFAULT_RPS = 10.0
+
+
+class CrossrefClient:
+    """Crossref 论文元数据客户端。
+
+    Attributes:
+        mailto: 用于进入 polite pool 的邮箱地址。
+    """
+
+    def __init__(self, mailto: str | None = None) -> None:
+        """初始化 Crossref 客户端。
+
+        Args:
+            mailto: 联系邮箱。未提供时从全局配置读取。
+        """
+        cfg = get_config()
+        self.mailto: str | None = mailto or cfg.resolve_api_key("crossref", "crossref_mailto")
+
+        headers: dict[str, str] = {
+            "User-Agent": f"SouWen/1.0 (mailto:{self.mailto})" if self.mailto else "SouWen/1.0",
+        }
+
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="crossref")
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
+
+    # ------------------------------------------------------------------
+    # async context manager
+    # ------------------------------------------------------------------
+
+    async def __aenter__(self) -> CrossrefClient:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        await self._client.__aexit__(exc_type, exc_val, exc_tb)
+
+    # ------------------------------------------------------------------
+    # 内部工具
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_publication_date(
+        item: dict[str, Any],
+    ) -> tuple[int | None, str | None, str | None, str | None]:
+        """提取日期信息；支持多种日期格式，返回规范化的日期及精度级别。
+
+        Crossref 的日期信息存在多个层级（published-print/published-online/created），
+        按优先级依次尝试提取。
+        """
+        # 按优先级尝试不同的日期来源
+        date_parts = (
+            item.get("published-print", {}).get("date-parts")
+            or item.get("published-online", {}).get("date-parts")
+            or item.get("created", {}).get("date-parts")
+        )
+        if not date_parts or not date_parts[0]:
+            return None, None, None, None
+
+        # 规范化日期部分为整数列表（年/月/日），最多取前 3 个元素
+        normalized: list[int] = []
+        for part in date_parts[0][:3]:
+            try:
+                normalized.append(int(part))
+            except (TypeError, ValueError):
+                # 若无法转换为整数，停止处理后续部分
+                break
+
+        if not normalized:
+            return None, None, None, None
+
+        # 构建不同精度的日期字符串
+        year = normalized[0]
+        raw_date = f"{year:04d}"
+        if len(normalized) >= 2:
+            raw_date += f"-{normalized[1]:02d}"
+        if len(normalized) >= 3:
+            raw_date += f"-{normalized[2]:02d}"
+
+        # 日期精度：year/month/day
+        precision = {1: "year", 2: "month", 3: "day"}.get(len(normalized))
+        # 仅当日期精度为 day 时，才作为 publication_date；其他情况为 None
+        publication_date = raw_date if len(normalized) >= 3 else None
+        return year, publication_date, raw_date, precision
+
+    @staticmethod
+    def _parse_item(item: dict[str, Any]) -> PaperResult:
+        """将 Crossref work item 转换为 PaperResult。
+
+        Args:
+            item: Crossref API 返回的单条 work JSON。
+
+        Returns:
+            统一的 PaperResult 模型。
+
+        Raises:
+            ParseError: 关键字段缺失或格式异常。
+        """
+        try:
+            # 提取标题（Crossref 返回标题为列表）
+            titles: list[str] = item.get("title", [])
+            title = titles[0] if titles else ""
+
+            # 提取作者列表及其机构信息
+            authors: list[Author] = []
+            for a in item.get("author", []):
+                # 作者名称由 given（名）和 family（姓）组成
+                name_parts = [a.get("given", ""), a.get("family", "")]
+                full_name = " ".join(p for p in name_parts if p).strip()
+                # 提取所有关联机构
+                affiliations = [
+                    aff.get("name", "") for aff in a.get("affiliation", []) if aff.get("name")
+                ]
+                if full_name:
+                    authors.append(
+                        Author(
+                            name=full_name,
+                            affiliation="; ".join(affiliations) if affiliations else None,
+                        )
+                    )
+
+            # 提取摘要（部分记录可能含 JATS XML 标签，需清理）
+            abstract_raw: str = item.get("abstract", "")
+            # 简单去除常见的 JATS 标签
+            abstract = abstract_raw
+            for tag in ("<jats:p>", "</jats:p>", "<jats:title>", "</jats:title>"):
+                abstract = abstract.replace(tag, "")
+            abstract = abstract.strip()
+
+            # 提取发表日期及年份
+            year, pub_date, raw_pub_date, date_precision = CrossrefClient._extract_publication_date(
+                item
+            )
+
+            # 提取 DOI
+            doi: str | None = item.get("DOI")
+
+            # 提取 PDF 下载链接
+            links = item.get("link", [])
+            pdf_url: str | None = None
+            for link in links:
+                if link.get("content-type") == "application/pdf":
+                    pdf_url = link.get("URL")
+                    break
+
+            # 提取期刊名称（container-title 是列表）
+            container_title = (item.get("container-title") or [None])[0]
+
+            return PaperResult(
+                title=title,
+                authors=authors,
+                abstract=abstract,
+                doi=doi,
+                year=year,
+                publication_date=pub_date,
+                source="crossref",
+                source_url=f"https://doi.org/{doi}" if doi else "",
+                pdf_url=pdf_url,
+                citation_count=item.get("is-referenced-by-count"),
+                journal=container_title,
+                raw={
+                    "type": item.get("type"),
+                    "container_title": (item.get("container-title") or [None])[0],
+                    "issn": item.get("ISSN"),
+                    "publisher": item.get("publisher"),
+                    "subject": item.get("subject"),
+                    "publication_date_raw": raw_pub_date,
+                    "publication_date_precision": date_precision,
+                },
+            )
+        except Exception as exc:
+            raise ParseError(f"解析 Crossref item 失败: {exc}") from exc
+
+    # ------------------------------------------------------------------
+    # 公开方法
+    # ------------------------------------------------------------------
+
+    async def search(
+        self,
+        query: str,
+        filters: dict[str, str] | None = None,
+        sort: str | None = None,
+        rows: int = 10,
+        offset: int = 0,
+    ) -> SearchResponse:
+        """全文搜索论文。
+
+        Args:
+            query: 检索关键词。
+            filters: Crossref filter 参数，如 ``{"from-pub-date": "2023"}``。
+            sort: 排序字段，如 ``"relevance"``、``"published"``。
+            rows: 返回条数，上限 1000。
+            offset: 偏移量。
+
+        Returns:
+            SearchResponse 包含结果列表及分页信息。
+        """
+        await self._limiter.acquire()
+
+        params: dict[str, str | int] = {
+            "query": query,
+            "rows": min(rows, 1000),
+            "offset": offset,
+        }
+        if self.mailto:
+            params["mailto"] = self.mailto
+        if filters:
+            filter_parts = [f"{k}:{v}" for k, v in filters.items()]
+            params["filter"] = ",".join(filter_parts)
+        if sort:
+            params["sort"] = sort
+
+        resp = await self._client.get("/works", params=params)
+        data: dict[str, Any] = resp.json()
+        message = data.get("message", {})
+
+        results: list[PaperResult] = []
+        for item in message.get("items", []):
+            try:
+                results.append(self._parse_item(item))
+            except ParseError as exc:
+                logger.warning(
+                    "Crossref item parse failure: %s (doi=%s, title=%s)",
+                    exc,
+                    item.get("DOI"),
+                    (item.get("title") or [None])[0],
+                )
+
+        return SearchResponse(
+            query=query,
+            total_results=message.get("total-results", len(results)),
+            page=(offset // rows) + 1 if rows else 1,
+            per_page=rows,
+            results=results,
+            source="crossref",
+        )
+
+    async def get_by_doi(self, doi: str) -> PaperResult:
+        """通过 DOI 获取论文详情。
+
+        Args:
+            doi: 论文 DOI，例如 ``"10.1038/s41586-021-03819-2"``。
+
+        Returns:
+            PaperResult 模型。
+
+        Raises:
+            NotFoundError: DOI 不存在。
+        """
+        await self._limiter.acquire()
+
+        params: dict[str, str] = {}
+        if self.mailto:
+            params["mailto"] = self.mailto
+
+        resp = await self._client.get(f"/works/{doi}", params=params)
+
+        if resp.status_code == 404:
+            raise NotFoundError(f"Crossref 未找到 DOI: {doi}")
+
+        data: dict[str, Any] = resp.json()
+        return self._parse_item(data.get("message", {}))
+
+
+_DOI = re.compile(r"^10\.\d{4,9}/\S+$", re.I)
+
+
+class CrossrefClientProtocol(Protocol):
+    async def search(self, query: str, rows: int = 10, offset: int = 0) -> Any: ...
+
+
+class CrossrefSearchProvider(ClientSearchProvider):
+    def __init__(self, client: CrossrefClientProtocol, *, enabled: bool = True) -> None:
+        super().__init__(client, _SPEC, enabled=enabled)
+
+
+async def _invoke(client: Any, request: SearchRequest, limit: int) -> Any:
+    return await client.search(request.query, rows=limit, offset=0)
+
+
+def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
+    results = getattr(response, "results", None)
+    total = getattr(response, "total_results", None)
+    if (
+        getattr(response, "source", None) != "crossref"
+        or getattr(response, "page", None) != 1
+        or getattr(response, "per_page", None) != limit
+        or not isinstance(results, Sequence)
+        or isinstance(results, (str, bytes))
+        or not isinstance(total, int)
+        or isinstance(total, bool)
+        or total < len(results)
+        or len(results) > limit
+    ):
+        raise ValueError("invalid Crossref response")
+    return SearchPage(
+        items=tuple(_item(paper, index) for index, paper in enumerate(results, 1)),
+        page=PageInfo(limit=limit, total=total),
+        meta=SearchMeta(requested=("crossref",), succeeded=("crossref",)),
+        context=context,
+    )
+
+
+def _item(paper: Any, rank: int) -> SearchItem:
+    doi = getattr(paper, "doi", None)
+    if (
+        getattr(paper, "source", None) != "crossref"
+        or not isinstance(doi, str)
+        or _DOI.fullmatch(doi) is None
+        or getattr(paper, "source_url", None) != f"https://doi.org/{doi}"
+        or not isinstance(getattr(paper, "title", None), str)
+        or not paper.title.strip()
+    ):
+        raise ValueError("invalid Crossref identifier")
+    return SearchItem(
+        id=f"doi:{doi.lower()}",
+        title=paper.title.strip(),
+        url=paper.source_url,
+        snippet=paper.abstract,
+        rank=rank,
+        provenance=(Provenance(provider="crossref", attempt=1, outcome="success"),),
+        attributes=SearchAttributes(
+            year=paper.year,
+            authors=tuple(author.name for author in paper.authors),
+            identifiers=(SearchIdentifier(scheme="doi", value=doi),),
+            resource_type=paper.raw.get("type"),
+            citation_count=paper.citation_count,
+        ),
+    )
+
+
+_SPEC = ClientSearchSpec("crossref", "paper", _invoke, _project)
+
+
+def build_provider(
+    configuration: Mapping[str, object],
+    secrets: Mapping[str, str],
+    config: SouWenConfig,
+    reviewed_proxy: str | None,
+) -> Any:
+    del secrets, config, reviewed_proxy  # 零 Key、无通道覆盖
+    return CrossrefSearchProvider(
+        CrossrefClient(),
+        enabled=bool(configuration["enabled"]),
+    )
+
+
+MANIFEST = CROSSREF_PROVIDER_MANIFEST
+SPEC = CROSSREF_PROVIDER_SPEC
+PROVIDER_TYPE = CrossrefSearchProvider
+
+
+__all__ = ["MANIFEST", "PROVIDER_TYPE", "SPEC", "build_provider"]

@@ -412,7 +412,6 @@ def test_pinned_planner_reports_actual_clamped_level_through_real_scraper(monkey
 def test_report_used_level_uses_actual_not_requested(live_census_env, monkeypatch):
     """run_live_census 的 used_level 赋值消费 actual_levels（requested→actual）。"""
 
-
     reports = doctor.run_live_census(["browser"])
     # brave 声明 max=browser（应记 browser）；yahoo max=proxy（应记 proxy 并标注钳制）
     by_source = {v.source: v for v in reports[0].verdicts}

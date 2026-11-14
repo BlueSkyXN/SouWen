@@ -5,7 +5,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.book.internet_archive import (
+from souwen.providers.information_sources.internet_archive.source import (
     InternetArchiveClient,
     _SEARCH_FIELDS,
 )

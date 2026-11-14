@@ -1,6 +1,6 @@
 """YouTube 客户端单元测试。
 
-覆盖 ``souwen.providers.runtime_clients.web.youtube.YouTubeClient`` 全功能路径。使用 ``pytest-httpx``
+覆盖 ``souwen.providers.information_sources.youtube.source.YouTubeClient`` 全功能路径。使用 ``pytest-httpx``
 直接 mock HTTP 层（YouTube Data API v3 是纯 JSON）。
 """
 
@@ -15,7 +15,7 @@ from souwen.common_runtime.provider_support.exceptions import (
     ParseError,
     RateLimitError,
 )
-from souwen.providers.runtime_clients.web.youtube import (
+from souwen.providers.information_sources.youtube.source import (
     VideoDetail,
     YouTubeClient,
     _parse_iso8601_duration,
@@ -32,7 +32,7 @@ _TIMEDTEXT_URL = re.compile(r"https://www\.youtube\.com/api/timedtext")
 def _mock_api_key(monkeypatch):
     """默认让 resolve_api_key 返回测试 Key"""
     monkeypatch.setattr(
-        "souwen.providers.runtime_clients.web.youtube.resolve_api_key",
+        "souwen.providers.information_sources.youtube.source.resolve_api_key",
         lambda *a, **kw: "test-youtube-key",
     )
 
@@ -133,7 +133,7 @@ class TestDurationParser:
 
 async def test_no_api_key_raises_config_error(monkeypatch):
     monkeypatch.setattr(
-        "souwen.providers.runtime_clients.web.youtube.resolve_api_key", lambda *a, **kw: None
+        "souwen.providers.information_sources.youtube.source.resolve_api_key", lambda *a, **kw: None
     )
     with pytest.raises(ConfigError):
         YouTubeClient()

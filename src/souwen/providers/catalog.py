@@ -25,11 +25,16 @@ def _provider_packages(namespace: str) -> Iterator[str]:
 
 
 def _manifests_from(module: ModuleType) -> tuple[ProviderManifest, ...]:
+    # 同一对象可有多个名字（如 MANIFEST 与旧常量别名）——按身份去重
     manifests = tuple(
-        value for value in vars(module).values() if isinstance(value, ProviderManifest)
+        {
+            id(value): value
+            for value in vars(module).values()
+            if isinstance(value, ProviderManifest)
+        }.values()
     )
     if not manifests:
-        raise RuntimeError(f"provider manifest module exports no manifests: {module.__name__}")
+        raise RuntimeError(f"provider source module exports no manifests: {module.__name__}")
     return manifests
 
 
@@ -40,7 +45,7 @@ def builtin_provider_manifests() -> tuple[ProviderManifest, ...]:
         manifest
         for namespace in _PROVIDER_NAMESPACES
         for package in _provider_packages(namespace)
-        for manifest in _manifests_from(importlib.import_module(f"{package}.manifest"))
+        for manifest in _manifests_from(importlib.import_module(f"{package}.source"))
     )
     registry = ManifestRegistry()
     registrations = registry.discover(manifests)

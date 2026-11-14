@@ -1,7 +1,11 @@
-"""OSTI Provider v2 Search bridge package."""
+"""Source package: osti（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import OstiClientProtocol, OstiSearchProvider
-from .manifest import OSTI_PROVIDER_MANIFEST
-from .spec import OSTI_BRIDGE_SPEC
-
-__all__ = ["OSTI_BRIDGE_SPEC", "OSTI_PROVIDER_MANIFEST", "OstiClientProtocol", "OstiSearchProvider"]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    OSTI_PROVIDER_MANIFEST,
+    OSTI_BRIDGE_SPEC,
+    _BRIDGE_SPEC,
+    OstiClient,
+    OstiClientProtocol,
+    OstiSearchProvider,
+    build_provider,
+)

@@ -6,7 +6,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
-from souwen.providers.runtime_clients.paper.eric import EricClient
+from souwen.providers.information_sources.eric.source import EricClient
 
 
 ERIC_RESPONSE = {

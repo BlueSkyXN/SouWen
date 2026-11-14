@@ -17,7 +17,7 @@ import re
 
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
+from souwen.providers.information_sources.stackoverflow.source import StackOverflowClient
 
 
 # ---------------------------------------------------------------------------

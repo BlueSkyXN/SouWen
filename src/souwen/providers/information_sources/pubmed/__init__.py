@@ -1,12 +1,11 @@
-"""PubMed Provider v2 Search bridge package."""
+"""Source package: pubmed（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import PubMedClientProtocol, PubMedSearchProvider
-from .manifest import PUBMED_PROVIDER_MANIFEST
-from .spec import PUBMED_BRIDGE_SPEC
-
-__all__ = [
-    "PUBMED_BRIDGE_SPEC",
-    "PUBMED_PROVIDER_MANIFEST",
-    "PubMedClientProtocol",
-    "PubMedSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    PUBMED_PROVIDER_MANIFEST,
+    PUBMED_BRIDGE_SPEC,
+    _BRIDGE_SPEC,
+    PubMedClient,
+    PubMedClientProtocol,
+    PubMedSearchProvider,
+    build_provider,
+)

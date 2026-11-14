@@ -1,12 +1,11 @@
-"""Built-in DOAJ Provider v2 package."""
+"""Source package: doaj（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import DoajClientProtocol, DoajSearchProvider
-from .manifest import DOAJ_PROVIDER_MANIFEST
-from .spec import DOAJ_PROVIDER_SPEC
-
-__all__ = [
-    "DOAJ_PROVIDER_MANIFEST",
-    "DOAJ_PROVIDER_SPEC",
-    "DoajClientProtocol",
-    "DoajSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    DOAJ_PROVIDER_MANIFEST,
+    DOAJ_PROVIDER_SPEC,
+    _SPEC,
+    DoajClient,
+    DoajClientProtocol,
+    DoajSearchProvider,
+    build_provider,
+)

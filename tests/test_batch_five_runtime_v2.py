@@ -77,7 +77,7 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
     constructor_calls, search_calls = [], {}
     closed: Counter[str] = Counter()
     for provider_id in _SOURCE_IDS:
-        namespace = import_module(f"souwen.providers.information_sources.{provider_id}.register")
+        namespace = import_module(f"souwen.providers.information_sources.{provider_id}.source")
         fake = _fake_client(provider_id, constructor_calls, search_calls, closed)
         client_name = {
             "baidu": "BaiduClient",
@@ -149,9 +149,7 @@ def test_real_batch_five_search_clients_construct_probe_and_close_without_networ
 
         _domains = search_domains_by_provider()
         _registers = {
-            provider_id: import_module(
-                f"souwen.providers.information_sources.{provider_id}.register"
-            )
+            provider_id: import_module(f"souwen.providers.information_sources.{provider_id}.source")
             for provider_id in _SOURCE_IDS
         }
         for provider_id in _SOURCE_IDS:

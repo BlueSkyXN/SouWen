@@ -5,7 +5,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
+from souwen.providers.information_sources.datacite.source import DataCiteClient
 
 
 def _record(

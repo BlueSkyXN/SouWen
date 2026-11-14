@@ -1,12 +1,11 @@
-"""Built-in OpenAIRE Provider v2 package."""
+"""Source package: openaire（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import OpenAireClientProtocol, OpenAireSearchProvider
-from .manifest import OPENAIRE_PROVIDER_MANIFEST
-from .spec import OPENAIRE_PROVIDER_SPEC
-
-__all__ = [
-    "OPENAIRE_PROVIDER_MANIFEST",
-    "OPENAIRE_PROVIDER_SPEC",
-    "OpenAireClientProtocol",
-    "OpenAireSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    OPENAIRE_PROVIDER_MANIFEST,
+    OPENAIRE_PROVIDER_SPEC,
+    _SPEC,
+    OpenAireClient,
+    OpenAireClientProtocol,
+    OpenAireSearchProvider,
+    build_provider,
+)

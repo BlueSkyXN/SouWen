@@ -1,12 +1,11 @@
-"""Built-in stackoverflow Provider v2 package."""
+"""Source package: stackoverflow（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import StackOverflowClientProtocol, StackOverflowSearchProvider
-from .manifest import STACKOVERFLOW_PROVIDER_MANIFEST
-from .spec import STACKOVERFLOW_PROVIDER_SPEC
-
-__all__ = [
-    "STACKOVERFLOW_PROVIDER_MANIFEST",
-    "STACKOVERFLOW_PROVIDER_SPEC",
-    "StackOverflowClientProtocol",
-    "StackOverflowSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    STACKOVERFLOW_PROVIDER_MANIFEST,
+    STACKOVERFLOW_PROVIDER_SPEC,
+    _SPEC,
+    StackOverflowClient,
+    StackOverflowClientProtocol,
+    StackOverflowSearchProvider,
+    build_provider,
+)

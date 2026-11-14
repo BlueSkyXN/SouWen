@@ -648,7 +648,7 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.eric.register"),
+        import_module("souwen.providers.information_sources.eric.source"),
         "HttpTransport",
         RuntimeTransport,
     )
@@ -733,14 +733,14 @@ async def test_disabled_eric_keeps_crossref_default_and_never_constructs_eric(mo
     from importlib import import_module
 
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.crossref.register"),
+        import_module("souwen.providers.information_sources.crossref.source"),
         "CrossrefClient",
         RuntimeCrossrefClient,
     )
     from importlib import import_module
 
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.eric.register"),
+        import_module("souwen.providers.information_sources.eric.source"),
         "HttpTransport",
         forbidden_eric_transport,
     )
@@ -788,7 +788,7 @@ async def test_invalid_eric_transport_config_is_ineligible_before_factory_constr
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.eric.register"),
+        import_module("souwen.providers.information_sources.eric.source"),
         "HttpTransport",
         forbidden_transport,
     )

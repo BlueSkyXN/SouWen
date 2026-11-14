@@ -1,12 +1,11 @@
-"""Built-in Europe PMC Provider v2 package."""
+"""Source package: europepmc（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import EuropePmcClientProtocol, EuropePmcSearchProvider
-from .manifest import EUROPEPMC_PROVIDER_MANIFEST
-from .spec import EUROPEPMC_PROVIDER_SPEC
-
-__all__ = [
-    "EUROPEPMC_PROVIDER_MANIFEST",
-    "EUROPEPMC_PROVIDER_SPEC",
-    "EuropePmcClientProtocol",
-    "EuropePmcSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    EUROPEPMC_PROVIDER_MANIFEST,
+    EUROPEPMC_PROVIDER_SPEC,
+    _SPEC,
+    EuropePmcClient,
+    EuropePmcClientProtocol,
+    EuropePmcSearchProvider,
+    build_provider,
+)

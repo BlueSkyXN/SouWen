@@ -1,5 +1,10 @@
-from .adapter import SearXNGSearchProvider
-from .manifest import SEARXNG_PROVIDER_MANIFEST
-from .spec import SEARXNG_PROVIDER_SPEC
+"""Source package: searxng（全部定义见 source.py，此处转发历史导入路径）。"""
 
-__all__ = ["SEARXNG_PROVIDER_MANIFEST", "SEARXNG_PROVIDER_SPEC", "SearXNGSearchProvider"]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    SEARXNG_PROVIDER_MANIFEST,
+    SEARXNG_PROVIDER_SPEC,
+    SearXNGClient,
+    SearXNGSearchProvider,
+    build_provider,
+    resolve_configuration,
+)

@@ -1,6 +1,11 @@
-"""Research-output clients and normalized non-paper research records."""
+"""历史导入路径转发：各源 client 已并入 information_sources/fetch_sources 的 source.py。"""
 
-from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
-from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
+from __future__ import annotations
 
-__all__ = ["DataCiteClient", "FigshareClient"]
+from souwen.providers.information_sources.datacite.source import DataCiteClient  # noqa: F401
+from souwen.providers.information_sources.figshare.source import FigshareClient  # noqa: F401
+
+__all__ = [
+    "DataCiteClient",
+    "FigshareClient",
+]

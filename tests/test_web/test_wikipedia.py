@@ -22,7 +22,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.common_runtime.provider_support.exceptions import ParseError
-from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient, _clean_html
+from souwen.providers.information_sources.wikipedia.source import WikipediaClient, _clean_html
 
 
 # ---------------------------------------------------------------------------

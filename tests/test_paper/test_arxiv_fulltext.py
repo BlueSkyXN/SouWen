@@ -17,7 +17,7 @@ import re
 
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
+from souwen.providers.fetch_sources.arxiv_fulltext.source import ArxivFulltextClient
 
 
 HTML_PAGE = """\

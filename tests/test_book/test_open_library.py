@@ -5,7 +5,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.book.open_library import OpenLibraryClient
+from souwen.providers.information_sources.open_library.source import OpenLibraryClient
 from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
 
 

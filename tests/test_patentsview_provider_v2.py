@@ -290,7 +290,7 @@ def test_delivery_explicit_patentsview_uses_lazy_secret_transport(monkeypatch) -
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.patentsview.register"),
+        import_module("souwen.providers.information_sources.patentsview.source"),
         "HttpTransport",
         RuntimeTransport,
     )

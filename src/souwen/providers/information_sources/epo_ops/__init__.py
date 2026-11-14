@@ -1,10 +1,10 @@
-from .adapter import EpoOpsClientProtocol, EpoOpsSearchProvider
-from .manifest import EPO_OPS_PROVIDER_MANIFEST
-from .spec import EPO_OPS_BRIDGE_SPEC
+"""Source package: epo_ops（全部定义见 source.py，此处转发历史导入路径）。"""
 
-__all__ = [
-    "EPO_OPS_BRIDGE_SPEC",
-    "EPO_OPS_PROVIDER_MANIFEST",
-    "EpoOpsClientProtocol",
-    "EpoOpsSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    EPO_OPS_PROVIDER_MANIFEST,
+    EPO_OPS_BRIDGE_SPEC,
+    EpoOpsClient,
+    EpoOpsClientProtocol,
+    EpoOpsSearchProvider,
+    build_provider,
+)

@@ -19,7 +19,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
+from souwen.providers.fetch_sources.jina_reader.source import JinaReaderClient
 
 
 JINA_URL_RE = re.compile(r"https://r\.jina\.ai/.*")

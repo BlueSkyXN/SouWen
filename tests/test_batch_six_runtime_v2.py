@@ -56,7 +56,7 @@ def _fake_client(provider_id, constructor_calls, search_calls, closed):
 
 @pytest.mark.parametrize(
     ("module_name", "class_name"),
-    (("souwen.providers.runtime_clients.web.searxng", "SearXNGClient"),),
+    (("souwen.providers.information_sources.searxng.source", "SearXNGClient"),),
 )
 def test_explicit_self_hosted_client_endpoint_does_not_read_ambient_config(
     monkeypatch, module_name: str, class_name: str

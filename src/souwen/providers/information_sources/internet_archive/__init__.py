@@ -1,12 +1,10 @@
-"""Built-in Internet Archive Provider v2 package."""
+"""Source package: internet_archive（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import InternetArchiveClientProtocol, InternetArchiveSearchProvider
-from .manifest import INTERNET_ARCHIVE_PROVIDER_MANIFEST
-from .spec import INTERNET_ARCHIVE_PROVIDER_SPEC
-
-__all__ = [
-    "INTERNET_ARCHIVE_PROVIDER_MANIFEST",
-    "INTERNET_ARCHIVE_PROVIDER_SPEC",
-    "InternetArchiveClientProtocol",
-    "InternetArchiveSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    INTERNET_ARCHIVE_PROVIDER_MANIFEST,
+    INTERNET_ARCHIVE_PROVIDER_SPEC,
+    InternetArchiveClient,
+    InternetArchiveClientProtocol,
+    InternetArchiveSearchProvider,
+    build_provider,
+)

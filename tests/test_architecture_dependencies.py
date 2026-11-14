@@ -122,7 +122,7 @@ def test_provider_adapter_may_depend_on_its_runtime_client(tmp_path: Path) -> No
     _write(
         root,
         "src/souwen/providers/information_sources/openalex/adapter.py",
-        "from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient\n",
+        "from souwen.providers.information_sources.openalex.source import OpenAlexClient\n",
     )
 
     assert _violations(root, exceptions) == []
@@ -160,12 +160,12 @@ def test_catalog_and_runtime_client_lazy_loading_are_explicitly_allowed(tmp_path
     [
         (
             "src/souwen/modules/search/application/service.py",
-            "from souwen.providers.information_sources.openalex import adapter\n",
+            "from souwen.providers.information_sources.openalex import source as adapter\n",
             "DEP-001",
         ),
         (
             "src/souwen/providers/information_sources/openalex/adapter.py",
-            "from souwen.providers.information_sources.crossref import adapter\n",
+            "from souwen.providers.information_sources.crossref import source as adapter\n",
             "DEP-003",
         ),
         (
@@ -464,7 +464,9 @@ def test_cli_returns_one_with_stable_evidence_and_zero_when_clean(
     root, exceptions = _repository(tmp_path)
     relative_path = "src/souwen/modules/search/application/service.py"
     _write(
-        root, relative_path, "from souwen.providers.information_sources.openalex import adapter\n"
+        root,
+        relative_path,
+        "from souwen.providers.information_sources.openalex import source as adapter\n",
     )
 
     assert checker.main(["--root", str(root), "--exceptions", str(exceptions)]) == 1

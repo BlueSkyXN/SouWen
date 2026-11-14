@@ -19,7 +19,7 @@ from datetime import date
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
+from souwen.providers.information_sources.crossref.source import CrossrefClient
 
 
 # ---------------------------------------------------------------------------

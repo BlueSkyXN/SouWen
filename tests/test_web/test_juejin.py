@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from souwen.providers.runtime_clients.models import WebSearchResponse
-from souwen.providers.runtime_clients.web.juejin import JuejinClient, _clean_html
+from souwen.providers.information_sources.juejin.source import JuejinClient, _clean_html
 
 
 class TestCleanHtml:

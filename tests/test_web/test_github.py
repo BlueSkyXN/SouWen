@@ -1,6 +1,6 @@
 """GitHub 搜索客户端单元测试。
 
-覆盖 ``souwen.providers.runtime_clients.web.github.GitHubClient`` 仓库搜索路径。使用 ``pytest-httpx``
+覆盖 ``souwen.providers.information_sources.github.source.GitHubClient`` 仓库搜索路径。使用 ``pytest-httpx``
 直接 mock HTTP 层（GitHub API 是纯 JSON，不像 scraper 引擎需要解析 HTML）。
 
 测试清单：
@@ -22,7 +22,7 @@ from __future__ import annotations
 import pytest
 
 from souwen.common_runtime.provider_support.exceptions import ParseError  # noqa: E402
-from souwen.providers.runtime_clients.web.github import GitHubClient  # noqa: E402
+from souwen.providers.information_sources.github.source import GitHubClient  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

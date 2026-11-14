@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from souwen.providers.runtime_clients.models import FetchResult
-from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
+from souwen.providers.fetch_sources.jina_reader.source import JinaReaderClient
 
 BLOCKED_URL = "http://127.0.0.1/admin"
 SAFE_URL = "https://1.1.1.1/page"

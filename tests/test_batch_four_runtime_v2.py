@@ -110,12 +110,12 @@ def test_batch_four_default_search_uses_only_registry_default_providers(
     from importlib import import_module
 
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.datacite.register"),
+        import_module("souwen.providers.information_sources.datacite.source"),
         "DataCiteClient",
         _fake_client("datacite", constructor_calls, search_calls, closed),
     )
     monkeypatch.setattr(
-        import_module("souwen.providers.information_sources.open_library.register"),
+        import_module("souwen.providers.information_sources.open_library.source"),
         "OpenLibraryClient",
         _fake_client("open_library", constructor_calls, search_calls, closed),
     )

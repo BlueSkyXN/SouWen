@@ -164,6 +164,9 @@ class ProviderManifest(_StrictManifestModel):
     risk: RiskDeclaration
     observability: ObservabilityDeclaration
     compatibility: CompatibilityDeclaration
+    # 需要免费 Key 才能工作的源默认关闭，配置了 key 才启用（PRD 4.2）。
+    # 消费者：server.v2_runtime 的 catalog 与 config resolver。
+    enabled_by_default: bool = True
 
     @model_validator(mode="after")
     def _validate_topology_and_compatibility(self) -> "ProviderManifest":

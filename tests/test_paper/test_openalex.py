@@ -21,7 +21,7 @@ from pytest_httpx import HTTPXMock
 
 from souwen.config import get_config
 from souwen.common_runtime.provider_support.exceptions import RateLimitError
-from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
+from souwen.providers.information_sources.openalex.source import OpenAlexClient
 
 
 # ---------------------------------------------------------------------------

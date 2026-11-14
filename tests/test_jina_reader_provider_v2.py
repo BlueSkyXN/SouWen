@@ -14,7 +14,7 @@ from souwen.providers.fetch_sources.jina_reader import (
     JINA_READER_PROVIDER_MANIFEST,
     JinaReaderFetchProvider,
 )
-from souwen.providers.fetch_sources.jina_reader import adapter
+from souwen.providers.fetch_sources.jina_reader import source as adapter
 
 
 class _Client:

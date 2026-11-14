@@ -16,7 +16,7 @@ from souwen.common_runtime.resilience import (
     TokenBucketLimiter,
 )
 from souwen.common_runtime.provider_support import rate_limiter as legacy_module
-from souwen.providers.runtime_clients.paper import openalex
+from souwen.providers.information_sources.openalex import source as openalex
 
 
 def test_legacy_rate_limiters_reexport_canonical_objects() -> None:

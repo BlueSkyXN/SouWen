@@ -25,7 +25,7 @@ from datetime import date
 from pytest_httpx import HTTPXMock
 
 from souwen.common_runtime.provider_support.exceptions import ConfigError
-from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
+from souwen.providers.information_sources.patentsview.source import PatentsViewClient
 
 TEST_API_KEY = "test-patentsview-key"
 

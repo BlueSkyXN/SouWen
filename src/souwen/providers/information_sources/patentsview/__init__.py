@@ -1,12 +1,12 @@
-"""Built-in PatentsView Provider v2 package."""
+"""Source package: patentsview（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import PatentsViewClientProtocol, PatentsViewSearchProvider
-from .manifest import PATENTSVIEW_PROVIDER_MANIFEST
-from .spec import PATENTSVIEW_REST_SPEC
-
-__all__ = [
-    "PATENTSVIEW_PROVIDER_MANIFEST",
-    "PATENTSVIEW_REST_SPEC",
-    "PatentsViewClientProtocol",
-    "PatentsViewSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    PATENTSVIEW_PROVIDER_MANIFEST,
+    PATENTSVIEW_REST_SPEC,
+    _PATENTSVIEW_BRIDGE_SPEC,
+    PatentsViewClient,
+    PatentsViewClientProtocol,
+    PatentsViewSearchProvider,
+    build_provider,
+    resolve_configuration,
+)

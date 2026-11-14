@@ -5,7 +5,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
+from souwen.providers.information_sources.library_of_congress.source import LibraryOfCongressClient
 from souwen.common_runtime.provider_support.exceptions import NotFoundError, SourceUnavailableError
 
 

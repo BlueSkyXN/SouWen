@@ -10,7 +10,7 @@ from souwen.common_runtime.provider_support.exceptions import (
     ParseError,
     SourceUnavailableError,
 )
-from souwen.providers.runtime_clients.paper.osti import OstiClient
+from souwen.providers.information_sources.osti.source import OstiClient
 
 
 OSTI_RECORD = {

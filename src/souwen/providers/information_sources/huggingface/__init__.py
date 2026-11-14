@@ -1,12 +1,10 @@
-"""Built-in HuggingFace Papers Provider v2 package."""
+"""Source package: huggingface（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import HuggingFaceClientProtocol, HuggingFaceSearchProvider
-from .manifest import HUGGINGFACE_PROVIDER_MANIFEST
-from .spec import HUGGINGFACE_REST_SPEC
-
-__all__ = [
-    "HUGGINGFACE_PROVIDER_MANIFEST",
-    "HUGGINGFACE_REST_SPEC",
-    "HuggingFaceClientProtocol",
-    "HuggingFaceSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    HUGGINGFACE_PROVIDER_MANIFEST,
+    HUGGINGFACE_REST_SPEC,
+    HuggingFaceClient,
+    HuggingFaceClientProtocol,
+    HuggingFaceSearchProvider,
+    build_provider,
+)

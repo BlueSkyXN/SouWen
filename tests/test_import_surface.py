@@ -12,7 +12,7 @@ def test_new_public_import_surface():
     from souwen.common_runtime.provider_support.scraper.base import BaseScraper
     from souwen.providers.runtime_clients.local_catalog import LocalCatalog
     from souwen.providers.runtime_clients.web.fetch import validate_fetch_url
-    from souwen.providers.runtime_clients.web.wayback import WaybackClient
+    from souwen.providers.fetch_sources.wayback.source import WaybackClient
 
     assert souwen.__all__ == ["__version__", "fetch", "get_agent_runtime", "search"]
     assert callable(souwen.search)

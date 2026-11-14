@@ -1,33 +1,35 @@
-"""论文数据源模块"""
+"""历史导入路径转发：各源 client 已并入 information_sources/fetch_sources 的 source.py。"""
 
-from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
-from souwen.providers.runtime_clients.paper.eric import EricClient
-from souwen.providers.runtime_clients.paper.osti import OstiClient
-from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
-from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
-from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
-from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
-from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
-from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
-from souwen.providers.runtime_clients.paper.doaj import DoajClient
-from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
-from souwen.providers.runtime_clients.paper.hal import HalClient
-from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
-from souwen.providers.runtime_clients.paper.iacr import IacrClient
+from __future__ import annotations
+
+from souwen.providers.information_sources.openalex.source import OpenAlexClient  # noqa: F401
+from souwen.providers.information_sources.eric.source import EricClient  # noqa: F401
+from souwen.providers.information_sources.arxiv.source import ArxivClient  # noqa: F401
+from souwen.providers.information_sources.crossref.source import CrossrefClient  # noqa: F401
+from souwen.providers.information_sources.europepmc.source import EuropePmcClient  # noqa: F401
+from souwen.providers.information_sources.hal.source import HalClient  # noqa: F401
+from souwen.providers.information_sources.huggingface.source import HuggingFaceClient  # noqa: F401
+from souwen.providers.information_sources.iacr.source import IacrClient  # noqa: F401
+from souwen.providers.information_sources.osti.source import OstiClient  # noqa: F401
+from souwen.providers.information_sources.pubmed.source import PubMedClient  # noqa: F401
+from souwen.providers.information_sources.doaj.source import DoajClient  # noqa: F401
+from souwen.providers.information_sources.openaire.source import OpenAireClient  # noqa: F401
+from souwen.providers.information_sources.zenodo.source import ZenodoClient  # noqa: F401
+from souwen.providers.fetch_sources.arxiv_fulltext.source import ArxivFulltextClient  # noqa: F401
 
 __all__ = [
     "OpenAlexClient",
     "EricClient",
-    "OstiClient",
-    "CrossrefClient",
     "ArxivClient",
-    "ArxivFulltextClient",
-    "PubMedClient",
-    "HuggingFaceClient",
+    "CrossrefClient",
     "EuropePmcClient",
-    "DoajClient",
-    "ZenodoClient",
     "HalClient",
-    "OpenAireClient",
+    "HuggingFaceClient",
     "IacrClient",
+    "OstiClient",
+    "PubMedClient",
+    "DoajClient",
+    "OpenAireClient",
+    "ZenodoClient",
+    "ArxivFulltextClient",
 ]

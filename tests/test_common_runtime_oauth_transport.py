@@ -15,7 +15,7 @@ import souwen.common_runtime.transport.oauth_client as canonical_module
 from souwen.common_runtime.transport import HttpTransport, OAuthTransport
 from souwen.common_runtime.provider_support.exceptions import AuthError
 from souwen.common_runtime.provider_support.http_client import OAuthClient, SouWenHttpClient
-from souwen.providers.runtime_clients.patent import epo_ops
+from souwen.providers.information_sources.epo_ops import source as epo_ops
 
 
 def _response(
@@ -188,7 +188,9 @@ def test_epo_constructs_with_canonical_oauth_operations() -> None:
     config.resolve_proxy.return_value = None
     config.resolve_headers.return_value = {}
     with (
-        patch("souwen.providers.runtime_clients.patent.epo_ops.get_config", return_value=config),
+        patch(
+            "souwen.providers.information_sources.epo_ops.source.get_config", return_value=config
+        ),
         patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient"),
     ):

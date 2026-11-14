@@ -1,5 +1,12 @@
-from .adapter import YouTubeSearchProvider
-from .manifest import YOUTUBE_PROVIDER_MANIFEST
-from .spec import YOUTUBE_PROVIDER_SPEC
+"""Source package: youtube（全部定义见 source.py，此处转发历史导入路径）。"""
 
-__all__ = ["YouTubeSearchProvider", "YOUTUBE_PROVIDER_MANIFEST", "YOUTUBE_PROVIDER_SPEC"]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    YOUTUBE_PROVIDER_MANIFEST,
+    YOUTUBE_PROVIDER_SPEC,
+    _SPEC,
+    VideoDetail,
+    YouTubeClient,
+    YouTubeClientProtocol,
+    YouTubeSearchProvider,
+    build_provider,
+)

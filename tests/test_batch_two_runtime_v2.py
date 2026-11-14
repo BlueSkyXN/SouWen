@@ -85,7 +85,7 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
             else "souwen.providers.information_sources."
         )
         monkeypatch.setattr(
-            import_module(f"{_source_ns}{provider_id}.register"),
+            import_module(f"{_source_ns}{provider_id}.source"),
             global_name,
             _fake_client(provider_id, constructor_calls, search_calls, closed),
         )
@@ -143,9 +143,9 @@ def test_every_real_batch_two_client_factory_constructs_and_closes_without_netwo
     runtime = runtime_module.build_target_runtime(_config())
 
     async def probe_and_close() -> None:
-        from souwen.server.v2_runtime import _discover_register_modules
+        from souwen.server.v2_runtime import _discover_source_modules
 
-        for module in _discover_register_modules():
+        for module in _discover_source_modules():
             if module.MANIFEST.id in _CLIENT_GLOBALS:
                 probe = await runtime.manager.probe(
                     module.MANIFEST.adapters[0].id,

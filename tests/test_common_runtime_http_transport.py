@@ -12,7 +12,7 @@ import httpx
 import pytest
 from tenacity import wait_none
 
-from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
+from souwen.providers.information_sources.library_of_congress.source import LibraryOfCongressClient
 from souwen.common_runtime.channel_overrides import (
     reviewed_source_max_retries,
     reviewed_source_proxy,
@@ -28,7 +28,7 @@ from souwen.common_runtime.transport import (
 )
 from souwen.common_runtime.provider_support.http_client import DEFAULT_USER_AGENT, SouWenHttpClient
 from souwen.common_runtime.provider_support.scraper.base import BaseScraper
-from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
+from souwen.providers.information_sources.datacite.source import DataCiteClient
 
 
 def _explicit_transport(**overrides: object) -> HttpTransport:

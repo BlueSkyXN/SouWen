@@ -1,12 +1,10 @@
-"""Built-in Library of Congress Provider v2 package."""
+"""Source package: library_of_congress（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import LibraryOfCongressClientProtocol, LibraryOfCongressSearchProvider
-from .manifest import LIBRARY_OF_CONGRESS_PROVIDER_MANIFEST
-from .spec import LIBRARY_OF_CONGRESS_PROVIDER_SPEC
-
-__all__ = [
-    "LIBRARY_OF_CONGRESS_PROVIDER_MANIFEST",
-    "LIBRARY_OF_CONGRESS_PROVIDER_SPEC",
-    "LibraryOfCongressClientProtocol",
-    "LibraryOfCongressSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    LIBRARY_OF_CONGRESS_PROVIDER_MANIFEST,
+    LIBRARY_OF_CONGRESS_PROVIDER_SPEC,
+    LibraryOfCongressClient,
+    LibraryOfCongressClientProtocol,
+    LibraryOfCongressSearchProvider,
+    build_provider,
+)

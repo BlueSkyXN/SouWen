@@ -1,17 +1,13 @@
-"""专利数据源模块
+"""历史导入路径转发：各源 client 已并入 information_sources/fetch_sources 的 source.py。"""
 
-包含以下数据源客户端：
-- PatentsViewClient: PatentsView/USPTO (API Key)
-- EpoOpsClient: EPO OPS (OAuth 2.0)
-- UsptoOdpClient: USPTO ODP (API Key)
-"""
+from __future__ import annotations
 
-from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
-from souwen.providers.runtime_clients.patent.epo_ops import EpoOpsClient
-from souwen.providers.runtime_clients.patent.uspto_odp import UsptoOdpClient
+from souwen.providers.information_sources.epo_ops.source import EpoOpsClient  # noqa: F401
+from souwen.providers.information_sources.uspto_odp.source import UsptoOdpClient  # noqa: F401
+from souwen.providers.information_sources.patentsview.source import PatentsViewClient  # noqa: F401
 
 __all__ = [
-    "PatentsViewClient",
     "EpoOpsClient",
     "UsptoOdpClient",
+    "PatentsViewClient",
 ]

@@ -1,12 +1,11 @@
-"""Built-in Zenodo Provider v2 package."""
+"""Source package: zenodo（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import ZenodoClientProtocol, ZenodoSearchProvider
-from .manifest import ZENODO_PROVIDER_MANIFEST
-from .spec import ZENODO_PROVIDER_SPEC
-
-__all__ = [
-    "ZENODO_PROVIDER_MANIFEST",
-    "ZENODO_PROVIDER_SPEC",
-    "ZenodoClientProtocol",
-    "ZenodoSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    ZENODO_PROVIDER_MANIFEST,
+    ZENODO_PROVIDER_SPEC,
+    _SPEC,
+    ZenodoClient,
+    ZenodoClientProtocol,
+    ZenodoSearchProvider,
+    build_provider,
+)

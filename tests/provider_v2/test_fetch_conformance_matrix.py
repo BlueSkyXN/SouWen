@@ -11,9 +11,9 @@ from souwen.platform.provider_spi import FetchTargetRequest
 from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.fetch_sources.arxiv_fulltext import ArxivFulltextFetchProvider
 from souwen.providers.fetch_sources.jina_reader import JinaReaderFetchProvider
-from souwen.providers.fetch_sources.jina_reader import adapter as jina_reader_adapter
+from souwen.providers.fetch_sources.jina_reader import source as jina_reader_adapter
 from souwen.providers.fetch_sources.wayback import WaybackFetchProvider
-from souwen.providers.fetch_sources.wayback import adapter as wayback_adapter
+from souwen.providers.fetch_sources.wayback import source as wayback_adapter
 from tests.support.provider_v2_conformance import (
     FETCH_CONFORMANCE_CASES,
     FetchConformanceDefinition,

@@ -1,12 +1,11 @@
-"""Built-in Crossref Provider v2 package."""
+"""Source package: crossref（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import CrossrefClientProtocol, CrossrefSearchProvider
-from .manifest import CROSSREF_PROVIDER_MANIFEST
-from .spec import CROSSREF_PROVIDER_SPEC
-
-__all__ = [
-    "CROSSREF_PROVIDER_MANIFEST",
-    "CROSSREF_PROVIDER_SPEC",
-    "CrossrefClientProtocol",
-    "CrossrefSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    CROSSREF_PROVIDER_MANIFEST,
+    CROSSREF_PROVIDER_SPEC,
+    _SPEC,
+    CrossrefClient,
+    CrossrefClientProtocol,
+    CrossrefSearchProvider,
+    build_provider,
+)

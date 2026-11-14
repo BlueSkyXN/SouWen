@@ -7,7 +7,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.common_runtime.provider_support.exceptions import NotFoundError, ParseError
-from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
+from souwen.providers.information_sources.figshare.source import FigshareClient
 
 
 def _article(

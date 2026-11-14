@@ -1,12 +1,11 @@
-"""arXiv full-text Provider v2 Fetch bridge package."""
+"""Source package: arxiv_fulltext（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import ArxivFulltextClientProtocol, ArxivFulltextFetchProvider
-from .manifest import ARXIV_FULLTEXT_PROVIDER_MANIFEST
-from .spec import ARXIV_FULLTEXT_FETCH_PROFILE
-
-__all__ = [
-    "ARXIV_FULLTEXT_FETCH_PROFILE",
-    "ARXIV_FULLTEXT_PROVIDER_MANIFEST",
-    "ArxivFulltextClientProtocol",
-    "ArxivFulltextFetchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    ARXIV_FULLTEXT_PROVIDER_MANIFEST,
+    ARXIV_FULLTEXT_FETCH_PROFILE,
+    _FETCH_SPEC,
+    ArxivFulltextClient,
+    ArxivFulltextClientProtocol,
+    ArxivFulltextFetchProvider,
+    build_provider,
+)

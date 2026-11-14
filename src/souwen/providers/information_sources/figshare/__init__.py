@@ -1,12 +1,10 @@
-"""Built-in Figshare Provider v2 package."""
+"""Source package: figshare（全部定义见 source.py，此处转发历史导入路径）。"""
 
-from .adapter import FigshareClientProtocol, FigshareSearchProvider
-from .manifest import FIGSHARE_PROVIDER_MANIFEST
-from .spec import FIGSHARE_PROVIDER_SPEC
-
-__all__ = [
-    "FIGSHARE_PROVIDER_MANIFEST",
-    "FIGSHARE_PROVIDER_SPEC",
-    "FigshareClientProtocol",
-    "FigshareSearchProvider",
-]
+from .source import (  # noqa: F401 — 兼容既有导入路径
+    FIGSHARE_PROVIDER_MANIFEST,
+    FIGSHARE_PROVIDER_SPEC,
+    FigshareClient,
+    FigshareClientProtocol,
+    FigshareSearchProvider,
+    build_provider,
+)

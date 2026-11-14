@@ -22,7 +22,7 @@ from datetime import date
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
+from souwen.providers.information_sources.arxiv.source import ArxivClient
 
 
 # ---------------------------------------------------------------------------
