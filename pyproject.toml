@@ -58,7 +58,7 @@ robots = ["protego>=0.3.0"]
 newspaper = ["newspaper4k>=0.9"]
 # readability 提取（Mozilla Readability 算法 + markdownify 转换）
 readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
-# TLS 伪装（爬虫类客户端需要：csdn/juejin/bilibili/weibo/zhihu/google_patents 等）
+# TLS 伪装（爬虫类客户端需要：baidu/brave/juejin/coolapk 等）
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn；/mcp 挂在 HTTP 服务里，故含 MCP SDK）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29", "mcp>=1.26,<2"]

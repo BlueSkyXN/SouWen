@@ -46,13 +46,6 @@ def batch_two_paper(provider_id: str) -> PaperResult:
                 "language": "en",
             },
         )
-    if provider_id == "semantic_scholar":
-        return PaperResult(
-            **common,
-            source_url="https://www.semanticscholar.org/paper/S2-B2",
-            citation_count=3,
-            raw={"is_open_access": True},
-        )
     if provider_id == "zenodo":
         return PaperResult(
             **common,
