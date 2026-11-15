@@ -27,6 +27,7 @@ from souwen.platform.provider_spi import (
     SearchItem,
     SearchMeta,
     SearchPage,
+    SearchPageRequest,
     SearchRequest,
 )
 
@@ -562,3 +563,237 @@ async def test_empty_default_and_cancel_stop_before_manager_call() -> None:
         )
     assert expired.value.code is ProviderErrorCode.DEADLINE_EXCEEDED
     assert manager.calls == []
+
+
+# --- limit 是最终返回条数的上限，批次推进按去重后的数量判断（NEXT-SEARCH-LIMIT）---
+
+
+def _limited_request(limit: int, providers: tuple[ProviderRef, ...] | None = None) -> SearchRequest:
+    return SearchRequest(
+        query="query",
+        domains=("web",),
+        page=SearchPageRequest(limit=limit),
+        providers=providers,
+    )
+
+
+@pytest.mark.asyncio
+async def test_merged_results_are_truncated_to_the_requested_limit() -> None:
+    """三个源各 3 条不同结果、limit=3：返回排序后的前 3 条，而不是 9 条。"""
+    context = _context()
+    selections = tuple(_selection(f"p{index}", priority=index) for index in range(1, 4))
+    manager = _Manager(
+        {
+            selection.adapter_id: _page(
+                context,
+                *(
+                    _item(
+                        f"{selection.provider.id}:{rank}",
+                        provider=selection.provider.id,
+                        rank=rank,
+                    )
+                    for rank in (1, 2, 3)
+                ),
+            )
+            for selection in selections
+        }
+    )
+    service = SearchModuleService(manager, _Selector(default=selections))
+
+    result = await service.search(_limited_request(3), context, _execution())
+
+    assert len(result.items) == 3
+    # 截断发生在合并排序之后：保留 RRF 排序的前 3 条，序号从 1 重新编号。
+    assert [item.rank for item in result.items] == [1, 2, 3]
+    assert [item.id for item in result.items] == ["p1:1", "p2:1", "p3:1"]
+    # 元信息不因截断伪造失败。
+    assert result.meta.failed == ()
+    assert result.meta.succeeded == ("p1", "p2", "p3")
+
+
+@pytest.mark.asyncio
+async def test_next_batch_runs_when_deduplication_leaves_too_few_unique_results() -> None:
+    """第一批三源同一 URL（合并后 1 条），limit=3：第四源必须被调用并补足。"""
+    context = _context()
+    selections = tuple(_selection(f"p{index}", priority=index) for index in range(1, 5))
+    shared_url = "https://example.com/same"
+    outcomes: dict[str, SearchPage | BaseException] = {
+        selection.adapter_id: _page(
+            context,
+            _item(
+                f"{selection.provider.id}:dup",
+                provider=selection.provider.id,
+                url=shared_url,
+            ),
+        )
+        for selection in selections[:3]
+    }
+    outcomes[selections[3].adapter_id] = _page(
+        context,
+        _item("p4:a", provider="p4", url="https://example.com/a"),
+        _item("p4:b", provider="p4", url="https://example.com/b"),
+    )
+    manager = _Manager(outcomes)
+    service = SearchModuleService(manager, _Selector(default=selections))
+
+    result = await service.search(_limited_request(3), context, _execution())
+
+    assert manager.calls == [selection.adapter_id for selection in selections]
+    assert len(result.items) == 3
+    assert result.meta.succeeded == ("p1", "p2", "p3", "p4")
+
+
+@pytest.mark.asyncio
+async def test_next_batch_is_not_called_once_enough_unique_results_exist() -> None:
+    """第一批去重后已达 limit：后续批次不被调用。"""
+    context = _context()
+    selections = tuple(_selection(f"p{index}", priority=index) for index in range(1, 5))
+    outcomes: dict[str, SearchPage | BaseException] = {
+        selection.adapter_id: _page(
+            context,
+            *(
+                _item(
+                    f"{selection.provider.id}:{rank}",
+                    provider=selection.provider.id,
+                    url=f"https://example.com/{selection.provider.id}/{rank}",
+                    rank=rank,
+                )
+                for rank in (1, 2)
+            ),
+        )
+        for selection in selections
+    }
+    manager = _Manager(outcomes)
+    service = SearchModuleService(manager, _Selector(default=selections))
+
+    result = await service.search(_limited_request(3), context, _execution())
+
+    assert manager.calls == [selection.adapter_id for selection in selections[:3]]
+    assert len(result.items) == 3
+    assert "p4" not in result.meta.succeeded
+
+
+@pytest.mark.asyncio
+async def test_limit_of_one_returns_a_single_item() -> None:
+    context = _context()
+    selection = _selection("only")
+    manager = _Manager(
+        {
+            selection.adapter_id: _page(
+                context,
+                _item("only:1", provider="only", rank=1),
+                _item("only:2", provider="only", rank=2),
+                _item("only:3", provider="only", rank=3),
+            )
+        }
+    )
+    service = SearchModuleService(manager, _Selector(default=(selection,)))
+
+    result = await service.search(_limited_request(1), context, _execution())
+
+    assert [item.id for item in result.items] == ["only:1"]
+
+
+@pytest.mark.asyncio
+async def test_fewer_results_than_limit_are_returned_unchanged() -> None:
+    context = _context()
+    selection = _selection("only")
+    manager = _Manager(
+        {selection.adapter_id: _page(context, _item("only:1", provider="only", rank=1))}
+    )
+    service = SearchModuleService(manager, _Selector(default=(selection,)))
+
+    result = await service.search(_limited_request(8), context, _execution())
+
+    assert [item.id for item in result.items] == ["only:1"]
+    assert result.meta.partial is False
+
+
+@pytest.mark.asyncio
+async def test_limit_is_applied_to_results_kept_after_a_provider_failure() -> None:
+    """部分源失败时仍保留已有结果，并同样受 limit 限制。"""
+    context = _context()
+    good = _selection("good", priority=1)
+    bad = _selection("bad", priority=2)
+    manager = _Manager(
+        {
+            good.adapter_id: _page(
+                context,
+                *(_item(f"good:{rank}", provider="good", rank=rank) for rank in (1, 2, 3, 4)),
+            ),
+            bad.adapter_id: ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
+        }
+    )
+    service = SearchModuleService(manager, _Selector(default=(good, bad)))
+
+    result = await service.search(_limited_request(2), context, _execution())
+
+    assert len(result.items) == 2
+    assert result.meta.partial is True
+    assert result.meta.failed == (
+        ProviderFailure(provider="bad", code=ProviderErrorCode.PROVIDER_UNAVAILABLE),
+    )
+
+
+@pytest.mark.asyncio
+async def test_explicit_multi_provider_results_are_also_truncated() -> None:
+    """显式点名多源的调用范围不变，最终结果同样受 limit 限制。"""
+    context = _context()
+    first = _selection("first")
+    second = _selection("second")
+    manager = _Manager(
+        {
+            first.adapter_id: _page(
+                context,
+                *(_item(f"first:{rank}", provider="first", rank=rank) for rank in (1, 2)),
+            ),
+            second.adapter_id: _page(
+                context,
+                *(_item(f"second:{rank}", provider="second", rank=rank) for rank in (1, 2)),
+            ),
+        }
+    )
+    selector = _Selector(default=(), explicit=(first, second))
+    service = SearchModuleService(manager, selector)
+    providers = (_provider("first"), _provider("second"))
+
+    result = await service.search(_limited_request(2, providers), context, _execution())
+
+    assert len(result.items) == 2
+    assert [item.rank for item in result.items] == [1, 2]
+    assert manager.calls == [first.adapter_id, second.adapter_id]
+
+
+@pytest.mark.asyncio
+async def test_batch_advance_counts_unique_results_with_the_merge_rules() -> None:
+    """批次推进的计数与最终合并共用同一去重规则（URL、标题+年份、稳定 ID）。"""
+    context = _context()
+    selections = tuple(_selection(f"p{index}", priority=index) for index in range(1, 5))
+    # 前三个源：同一 URL 一条 + 同一「标题+年份」一条，去重后只有 2 条唯一结果。
+    outcomes: dict[str, SearchPage | BaseException] = {}
+    for selection in selections[:3]:
+        outcomes[selection.adapter_id] = _page(
+            context,
+            _item(
+                f"{selection.provider.id}:url",
+                provider=selection.provider.id,
+                url="https://example.com/shared",
+            ),
+            _item(
+                f"{selection.provider.id}:title",
+                title="Same Title",
+                year=2024,
+                provider=selection.provider.id,
+            ),
+        )
+    outcomes[selections[3].adapter_id] = _page(
+        context,
+        _item("p4:extra", provider="p4", url="https://example.com/extra"),
+    )
+    manager = _Manager(outcomes)
+    service = SearchModuleService(manager, _Selector(default=selections))
+
+    result = await service.search(_limited_request(3), context, _execution())
+
+    assert manager.calls == [selection.adapter_id for selection in selections]
+    assert len(result.items) == 3

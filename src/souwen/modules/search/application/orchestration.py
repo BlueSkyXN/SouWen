@@ -216,8 +216,10 @@ class SearchModuleService:
                 break
             execution.raise_if_cancelled_or_expired()
             outcomes.extend(await self._run_batch(batch, request, context, execution))
-            got = sum(len(outcome.page.items) for outcome in outcomes if outcome.page is not None)
             self._remember(outcomes[-len(batch) :])
+            # 是否继续下一批按去重后的唯一结果数判断：多个源返回同一 URL/标题
+            # 时原始条目数会虚高，按原始条数提前停止会留下不足 limit 的结果。
+            got = len(_merge_items(_successful_pages(outcomes))) if batched else 0
             if not batched or got >= wanted:
                 break
         outcomes.extend(
@@ -247,7 +249,7 @@ class SearchModuleService:
         if not successes:
             raise _all_fail_error(errors, failures)
 
-        items = _merge_items(successes)
+        items = _merge_items(successes)[:wanted]
         first_page = successes[0][1].page
         # A provider cursor is meaningful only for that provider. Explicit
         # fanout deliberately does not expose one provider's continuation as a
@@ -377,6 +379,14 @@ class SearchModuleService:
         if len(selections) != len(expected) or set(selected) != set(expected):
             raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
         return selections
+
+
+def _successful_pages(
+    outcomes: list[_ProviderOutcome],
+) -> list[tuple[SearchProviderSelection, SearchPage]]:
+    """Provider pages that succeeded, in the order the providers ran."""
+
+    return [(outcome.selection, outcome.page) for outcome in outcomes if outcome.page is not None]
 
 
 def _merge_items(

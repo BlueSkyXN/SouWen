@@ -368,3 +368,245 @@ async def test_runtime_close_attempts_browser_after_provider_close_failure() -> 
         await runtime.close()
 
     assert worker.closed is True
+
+
+# --- limit 截断经真实共享搜索层到达三个入口（NEXT-SEARCH-LIMIT） ---
+
+
+class _LimitSearchModule:
+    """Stand-in for the search module that runs the real orchestration service."""
+
+    def __init__(self, service) -> None:
+        self._service = service
+
+    async def search(self, request, context, execution):
+        return await self._service.search(request, context, execution)
+
+
+def _real_agent_runtime(search_module) -> object:
+    """AgentRuntime over a TargetRuntime whose search is the real shared service."""
+    from souwen.agent import AgentRuntime
+    from souwen.server.v2_runtime import (
+        RuntimeMetadata,
+        TargetDeliveryServices,
+        TargetRuntime,
+    )
+
+    services = TargetDeliveryServices(
+        search=search_module,
+        fetch=None,
+        provider_items=(),
+        readiness=None,
+    )
+    runtime = TargetRuntime(
+        services=services,
+        metadata=RuntimeMetadata(version="test", source_sha=None),
+        manager=_NoopManager(),
+        browser_client=None,
+    )
+    return AgentRuntime(runtime, SouWenConfig())
+
+
+class _NoopManager:
+    async def close_all(self) -> None:
+        return None
+
+
+def _limit_service(context, selections, outcomes):
+    from souwen.modules.search.api import SearchModuleService
+
+    manager = _LimitManager(outcomes)
+    selector = _LimitSelector(selections)
+    return SearchModuleService(manager, selector), manager
+
+
+class _LimitManager:
+    def __init__(self, outcomes) -> None:
+        self.outcomes = outcomes
+        self.calls: list[str] = []
+
+    async def execute(self, adapter_id, request, context, execution):  # noqa: ANN001
+        self.calls.append(adapter_id)
+        outcome = self.outcomes[adapter_id]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
+class _LimitSelector:
+    def __init__(self, selections) -> None:
+        self.selections = selections
+
+    def select_default(self, request):  # noqa: ANN001
+        return self.selections
+
+    def select_explicit(self, providers):  # noqa: ANN001
+        return self.selections
+
+
+def _search_fixtures(limit: int):
+    """Three providers, three distinct results each; request limit is 3."""
+    from souwen.modules.search.application import SearchProviderSelection
+    from souwen.platform.provider_spi import (
+        PageInfo,
+        Provenance,
+        ProviderRef,
+        RequestContext,
+        SearchAttributes,
+        SearchItem,
+        SearchMeta,
+        SearchPage,
+    )
+
+    context = RequestContext(request_id="limit-entries")
+    selections = tuple(
+        SearchProviderSelection(
+            provider=ProviderRef(id=f"p{index}", kind="search"),
+            adapter_id=f"p{index}-adapter",
+            yaml_priority=index,
+        )
+        for index in range(1, 4)
+    )
+
+    def item(provider: str, rank: int) -> SearchItem:
+        return SearchItem(
+            id=f"{provider}:{rank}",
+            title=f"{provider} result {rank}",
+            rank=rank,
+            url=f"https://example.com/{provider}/{rank}",
+            provenance=(Provenance(provider=provider, outcome="success"),),
+            attributes=SearchAttributes(),
+        )
+
+    outcomes = {
+        selection.adapter_id: SearchPage(
+            items=tuple(item(selection.provider.id, rank) for rank in (1, 2, 3)),
+            page=PageInfo(limit=10),
+            meta=SearchMeta(),
+            context=context,
+        )
+        for selection in selections
+    }
+    return context, selections, outcomes
+
+
+@pytest.mark.asyncio
+async def test_limit_truncation_is_identical_across_http_mcp_and_python() -> None:
+    from souwen.server.mcp_server import build_mcp_server
+
+    context, selections, outcomes = _search_fixtures(limit=3)
+    service, manager = _limit_service(context, selections, outcomes)
+    runtime = _real_agent_runtime(_LimitSearchModule(service))
+
+    python_summary = await runtime.search("query", domain="web", limit=3)
+    python_calls = list(manager.calls)
+    manager.calls.clear()
+
+    server = build_mcp_server(runtime)
+    content_blocks, _structured = await server.call_tool(
+        "search", {"query": "query", "domain": "web", "limit": 3}
+    )
+    mcp_text = content_blocks[0].text
+    mcp_calls = list(manager.calls)
+    manager.calls.clear()
+
+    http_payload = (
+        _app(runtime).post("/search", json={"query": "query", "domain": "web", "limit": 3}).json()
+    )
+    http_calls = list(manager.calls)
+
+    # 三入口都是真实共享搜索层的同一结果：恰好 3 条，顺序一致。
+    assert len(python_summary.results) == 3
+    assert [r.url for r in python_summary.results] == [
+        "https://example.com/p1/1",
+        "https://example.com/p2/1",
+        "https://example.com/p3/1",
+    ]
+    assert len(http_payload["results"]) == 3
+    assert [r["url"] for r in http_payload["results"]] == [r.url for r in python_summary.results]
+    assert mcp_text == format_search_summary(python_summary)
+    assert mcp_text.count("\n") >= 2
+    # 每个入口都走真实服务，各自只扇出一次这三个源。
+    expected_calls = ["p1-adapter", "p2-adapter", "p3-adapter"]
+    assert python_calls == expected_calls
+    assert mcp_calls == expected_calls
+    assert http_calls == expected_calls
+
+
+@pytest.mark.asyncio
+async def test_limit_truncation_reaches_entries_when_the_first_batch_deduplicates() -> None:
+    """第一批去重后不足，后续批次补齐；三入口看到同样的 3 条。"""
+    from souwen.server.mcp_server import build_mcp_server
+    from souwen.modules.search.application import SearchProviderSelection
+    from souwen.platform.provider_spi import (
+        PageInfo,
+        Provenance,
+        ProviderRef,
+        RequestContext,
+        SearchAttributes,
+        SearchItem,
+        SearchMeta,
+        SearchPage,
+    )
+
+    context = RequestContext(request_id="limit-dedup-entries")
+    selections = tuple(
+        SearchProviderSelection(
+            provider=ProviderRef(id=f"p{index}", kind="search"),
+            adapter_id=f"p{index}-adapter",
+            yaml_priority=index,
+        )
+        for index in range(1, 5)
+    )
+    shared = "https://example.com/same"
+
+    def page(*items: SearchItem) -> SearchPage:
+        return SearchPage(items=items, page=PageInfo(limit=10), meta=SearchMeta(), context=context)
+
+    def item(item_id: str, provider: str, url: str, rank: int = 1) -> SearchItem:
+        return SearchItem(
+            id=item_id,
+            title=item_id,
+            rank=rank,
+            url=url,
+            provenance=(Provenance(provider=provider, outcome="success"),),
+            attributes=SearchAttributes(),
+        )
+
+    outcomes = {
+        selection.adapter_id: page(
+            item(f"{selection.provider.id}:dup", selection.provider.id, shared)
+        )
+        for selection in selections[:3]
+    }
+    outcomes[selections[3].adapter_id] = page(
+        item("p4:a", "p4", "https://example.com/a"),
+        item("p4:b", "p4", "https://example.com/b", rank=2),
+    )
+    service, manager = _limit_service(context, selections, outcomes)
+    runtime = _real_agent_runtime(_LimitSearchModule(service))
+
+    python_summary = await runtime.search("query", domain="web", limit=3)
+    python_calls = list(manager.calls)
+    manager.calls.clear()
+
+    server = build_mcp_server(runtime)
+    content_blocks, _structured = await server.call_tool(
+        "search", {"query": "query", "domain": "web", "limit": 3}
+    )
+    mcp_calls = list(manager.calls)
+    manager.calls.clear()
+
+    http_payload = (
+        _app(runtime).post("/search", json={"query": "query", "domain": "web", "limit": 3}).json()
+    )
+    http_calls = list(manager.calls)
+
+    expected_calls = [f"p{index}-adapter" for index in range(1, 5)]
+    assert python_calls == expected_calls
+    assert mcp_calls == expected_calls
+    assert http_calls == expected_calls
+    assert len(python_summary.results) == 3
+    assert len(http_payload["results"]) == 3
+    assert content_blocks[0].text == format_search_summary(python_summary)
+    assert [r["url"] for r in http_payload["results"]] == [r.url for r in python_summary.results]
