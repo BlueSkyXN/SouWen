@@ -89,10 +89,16 @@ def classify_warp_report(report: Any, *, expected_checks: tuple[str, ...]) -> tu
             "the WARP-dependent checks are reported as unverified, not passed"
         )
 
-    failures = [name for name, check in checks.items() if check.get("outcome") == "FAIL"]
+    # 这些检查都是必验项：SKIP / WARN 也等于"没有验证通过"，不能算 PASS。
+    # 上一轮就出现过 actual_mode 因状态文件未落盘而 SKIP、整腿仍记 PASS 的情况。
+    failures = [
+        f"{name}={check.get('outcome')}"
+        for name, check in checks.items()
+        if check.get("outcome") != "PASS"
+    ]
     if failures:
         return VERDICT_FAIL, (
-            "required WARP checks failed after the proxy came up: " + ", ".join(failures)
+            "required WARP checks did not pass after the proxy came up: " + ", ".join(failures)
         )
 
     return VERDICT_PASS, "all WARP checks passed"

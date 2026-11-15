@@ -1064,15 +1064,27 @@ def check_usque_forced(recorder: ResultRecorder, args: argparse.Namespace) -> No
         )
 
     def actual_mode() -> tuple[str, dict[str, Any]]:
+        # manager 在后台线程启动 WARP，状态文件要等它写；这里短暂轮询，
+        # 而不是一看到文件不在就跳过——"没读到状态"不是"无需归属"。
+        deadline = time.monotonic() + 60
         state = _warp_state_details()
+        while state.get("state_file") != str(_warp_state_file()) and time.monotonic() < deadline:
+            time.sleep(2)
+            state = _warp_state_details()
         if state.get("state_file") != str(_warp_state_file()):
-            raise CheckSkipped("WARP state file was not written; nothing to attribute")
+            raise ProbeError(
+                f"WARP manager never wrote its state file; the actual mode is unproven ({state})",
+                details=state,
+            )
         if state.get("status") != "enabled":
-            raise ProbeError(f"WARP manager state is {state.get('status')!r}, not enabled")
+            raise ProbeError(
+                f"WARP manager state is {state.get('status')!r}, not enabled", details=state
+            )
         if state.get("mode") != "usque":
             raise ProbeError(
                 f"manager actually ran mode {state.get('mode')!r}, not usque; "
-                "the recommendation alone is not usage evidence"
+                "the recommendation alone is not usage evidence",
+                details=state,
             )
         return f"manager actually ran mode usque (status={state.get('status')})", state
 

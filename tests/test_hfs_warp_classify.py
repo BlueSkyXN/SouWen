@@ -195,6 +195,27 @@ class TestUsqueForcedClassification:
         assert "usqueforced.actual_mode" in reason
 
 
+class TestSkippedChecksDoNotCountAsVerified:
+    """actual_mode 曾因状态文件未落盘 SKIP，整腿仍记 PASS。"""
+
+    def test_a_skipped_required_check_fails_the_leg(self):
+        checks = [
+            _check("usqueforced.mode_requested", "PASS"),
+            _check("usqueforced.socks_egress", "PASS", {"history": [{"attempt": 1, "warp": "on"}]}),
+            _check("usqueforced.actual_mode", "SKIP"),
+            _check("usqueforced.browser_via_usque", "PASS"),
+        ]
+        verdict, reason = classify(_report(checks), kind="usque-forced")
+        assert verdict == VERDICT_FAIL
+        assert "usqueforced.actual_mode=SKIP" in reason
+
+    def test_a_warned_required_check_fails_the_leg(self):
+        checks = _warp_checks(replace=[("warp.exit_differs", "WARN", {})])
+        verdict, reason = classify(_report(checks), kind="warp")
+        assert verdict == VERDICT_FAIL
+        assert "warp.exit_differs=WARN" in reason
+
+
 class TestReportIntegrity:
     def test_a_missing_report_fails(self):
         verdict, reason = classify(None, kind="warp")
