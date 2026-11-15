@@ -314,6 +314,7 @@ class TestCliSurface:
             "authopen",
             "browser",
             "warp",
+            "usque-forced",
         }
 
     def test_image_mode_requires_an_expected_sha(self):
@@ -335,3 +336,176 @@ class TestCliSurface:
         assert check.MIN_FETCH_CHARS == queries["min_fetch_chars"]
         assert check.SMOKE_SEARCH_LIMIT <= queries["search_page_limit"]
         assert check.SMOKE_FETCH_URL in queries["fetch_urls"]["static"]
+
+
+class TestAuthopenDoesNotLeakThePassword:
+    """复核 R4：配置不符合预期时不得把口令原文写进异常、报告或 traceback。"""
+
+    SENTINEL = "sentinel-password-secret"
+
+    def _run(self, tmp_path, capsys):
+        import json
+
+        args = check.parse_args(
+            [
+                "--mode",
+                "authopen",
+                "--json-report",
+                str(tmp_path / "report.json"),
+                "--markdown-report",
+                str(tmp_path / "report.md"),
+            ]
+        )
+        recorder = ResultRecorder(script="hfs_image_check:authopen", mode="authopen")
+        check.check_authopen(recorder, args)
+        recorder.write_reports(json_report=args.json_report, markdown_report=args.markdown_report)
+        captured = capsys.readouterr()
+        blob = "\n".join(
+            (
+                captured.out,
+                captured.err,
+                (tmp_path / "report.json").read_text(encoding="utf-8"),
+                (tmp_path / "report.md").read_text(encoding="utf-8"),
+                json.dumps(recorder.to_json(), ensure_ascii=False),
+            )
+        )
+        return blob
+
+    def test_a_configured_password_is_reported_without_its_value(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        monkeypatch.setattr(
+            check,
+            "_container_password_state",
+            lambda: (self.SENTINEL, self.SENTINEL),
+        )
+        blob = self._run(tmp_path, capsys)
+        assert self.SENTINEL not in blob
+        assert "user_password is configured" in blob
+        assert "run --mode auth instead" in blob
+
+    def test_an_effective_password_without_raw_value_is_also_boolean_only(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        monkeypatch.setattr(
+            check,
+            "_container_password_state",
+            lambda: (None, self.SENTINEL),
+        )
+        blob = self._run(tmp_path, capsys)
+        assert self.SENTINEL not in blob
+        assert "user_password is configured" in blob
+
+    def test_the_none_case_still_passes_and_reports_booleans(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setattr(check, "_container_password_state", lambda: (None, None))
+        blob = self._run(tmp_path, capsys)
+        assert self.SENTINEL not in blob
+        assert "user_password is None and the effective password is unset" in blob
+        assert '"user_password_configured": false' in blob
+
+
+class TestWarpHttpJudgement:
+    """复核 R3：WARP 下的 HTTP 检查必须复用有效条目与正文判定。"""
+
+    @staticmethod
+    def _run_check_warp(monkeypatch, tmp_path, *, search_payload, fetch_payload):
+        """Run the real check_warp with fake transport; return the recorder."""
+
+        def fake_http_request(url, **kwargs):
+            if url.endswith("/search"):
+                return 200, search_payload
+            return 200, fetch_payload
+
+        async def fake_mcp_search(args, *, limit, min_results):
+            raise check.ProbeError("mcp not stubbed for this test")
+
+        monkeypatch.setattr(check, "http_request", fake_http_request)
+        monkeypatch.setattr(
+            check, "warp_trace", lambda proxy, timeout=30.0: {"warp": "on", "ip": "203.0.113.9"}
+        )
+        monkeypatch.setattr(
+            check, "warp_trace_direct", lambda timeout=30.0: {"warp": "off", "ip": "198.51.100.4"}
+        )
+        monkeypatch.setattr(
+            check,
+            "browser_probe",
+            lambda url, *, proxy: {"chars": 200, "final_url": url, "proxy": proxy},
+        )
+        monkeypatch.setattr(check, "_mcp_search_probe", fake_mcp_search)
+        monkeypatch.setattr(
+            check,
+            "_mcp_fetch_probe",
+            lambda args: _for_test_async("42537 chars through tools/call", {}),
+        )
+
+        args = check.parse_args(["--mode", "warp", "--json-report", str(tmp_path / "warp.json")])
+        recorder = ResultRecorder(script="hfs_image_check:warp", mode="warp")
+        check.check_warp(recorder, args)
+        return recorder
+
+    def test_empty_search_and_a_captcha_fetch_fail_under_warp(self, monkeypatch, tmp_path):
+        captcha_fetch = {
+            "title": "Verify you are human",
+            "content": "captcha " + "x" * 600,
+            "egress": "proxy",
+        }
+        recorder = self._run_check_warp(
+            monkeypatch,
+            tmp_path,
+            search_payload={"results": [], "sources": [], "partial": False},
+            fetch_payload=captcha_fetch,
+        )
+        by_name = {c.name: c for c in recorder.checks}
+        assert by_name["warp.http_after_warp"].outcome == Outcome.FAIL
+        assert by_name["warp.http_after_warp"].details["search_usable"] == 0
+        assert "usable results" in by_name["warp.http_after_warp"].message
+        assert recorder.overall == Outcome.FAIL
+
+    def test_a_long_but_blocked_body_is_rejected_by_the_census_judgement(
+        self, monkeypatch, tmp_path
+    ):
+        recorder = self._run_check_warp(
+            monkeypatch,
+            tmp_path,
+            search_payload={
+                "results": [{"title": "t", "url": "https://a.example/x"}],
+                "sources": ["openalex"],
+                "partial": False,
+            },
+            fetch_payload={
+                "title": "Just a moment...",
+                "content": "please wait " + "x" * 600,
+                "egress": "proxy",
+            },
+        )
+        by_name = {c.name: c for c in recorder.checks}
+        assert by_name["warp.http_after_warp"].outcome == Outcome.FAIL
+        assert "interstitial" in by_name["warp.http_after_warp"].details["fetch_judgement"]
+
+    def test_valid_results_pass_and_the_actual_mode_is_recorded(self, monkeypatch, tmp_path):
+        recorder = self._run_check_warp(
+            monkeypatch,
+            tmp_path,
+            search_payload={
+                "results": [{"title": "t", "url": "https://a.example/x"}],
+                "sources": ["openalex"],
+                "partial": False,
+            },
+            fetch_payload={
+                "title": "Web scraping - Wikipedia",
+                "content": "y" * 600,
+                "egress": "direct",
+            },
+        )
+        by_name = {c.name: c for c in recorder.checks}
+        assert by_name["warp.http_after_warp"].outcome == Outcome.PASS
+        state = by_name["warp.socks_egress"].details["warp_state"]
+        assert state["state_file"] in ("missing", "unreadable")
+
+
+def _for_test_async(message, details):
+
+    async def _coro():
+        return (message, details)
+
+    return _coro()

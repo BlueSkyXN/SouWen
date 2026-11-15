@@ -43,7 +43,7 @@ from typing import Any
 
 from scripts._functional_common import CheckSkipped, ResultRecorder, run_check
 
-MODES = ("image", "http", "mcp", "auth", "authopen", "browser", "warp")
+MODES = ("image", "http", "mcp", "auth", "authopen", "browser", "warp", "usque-forced")
 
 # Frozen smoke inputs, taken from scripts/census/queries.json. Chosen before the
 # first run and not swapped afterwards: paper passed 10/10 on both census legs,
@@ -88,7 +88,16 @@ _UNAUTHORIZED = frozenset({401, 403})
 
 
 class ProbeError(RuntimeError):
-    """A probe could not be completed; recorded as a failed check."""
+    """A probe could not be completed; recorded as a failed check.
+
+    ``details`` carries the probe's own evidence (attempt history, manager
+    state, judgements) into the failed record — without it a failure only
+    keeps a traceback and the WARP leg cannot be classified from the report.
+    """
+
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.details = dict(details or {})
 
 
 def status_ok(status: int, expected: int | str) -> bool:
@@ -458,73 +467,84 @@ def _is_numbered_result(line: str) -> bool:
     return bool(separator) and head.isdigit() and bool(rest.strip())
 
 
-def check_mcp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
+async def _mcp_tools_probe(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
     url = args.mcp_url or f"{args.base_url.rstrip('/')}/mcp"
+    result = await _mcp_call(args, lambda session: session.list_tools())
+    names = sorted(tool.name for tool in result.tools)
+    details = {"url": url, "tools": names}
+    if names != ["fetch", "search"]:
+        raise ProbeError(f"tools are {names}, expected ['fetch', 'search']")
+    return "tools are exactly search and fetch", details
 
-    async def tools() -> tuple[str, dict[str, Any]]:
-        result = await _mcp_call(args, lambda session: session.list_tools())
-        names = sorted(tool.name for tool in result.tools)
-        details = {"url": url, "tools": names}
-        if names != ["fetch", "search"]:
-            raise ProbeError(f"tools are {names}, expected ['fetch', 'search']")
-        return "tools are exactly search and fetch", details
 
-    async def call_search() -> tuple[str, dict[str, Any]]:
-        result = await _mcp_call(
-            args,
-            lambda session: session.call_tool(
-                "search",
-                {
-                    "query": SMOKE_SEARCH_QUERY,
-                    "domain": SMOKE_SEARCH_DOMAIN,
-                    "limit": SMOKE_SEARCH_LIMIT,
-                },
-            ),
-        )
-        text = _tool_text(result)
-        numbered = [line for line in text.splitlines() if _is_numbered_result(line)]
-        details = {
-            "is_error": bool(getattr(result, "isError", False)),
-            "numbered_results": len(numbered),
-            "text_head": text[:400],
-        }
-        if details["is_error"]:
-            raise ProbeError(f"search tool returned an error: {text[:200]}")
-        if len(numbered) < SMOKE_SEARCH_LIMIT:
-            raise ProbeError(f"search tool returned {len(numbered)} results")
-        return f"{len(numbered)} numbered results through tools/call", details
+async def _mcp_search_probe(
+    args: argparse.Namespace, *, limit: int, min_results: int
+) -> tuple[str, dict[str, Any]]:
+    result = await _mcp_call(
+        args,
+        lambda session: session.call_tool(
+            "search",
+            {
+                "query": SMOKE_SEARCH_QUERY,
+                "domain": SMOKE_SEARCH_DOMAIN,
+                "limit": limit,
+            },
+        ),
+    )
+    text = _tool_text(result)
+    numbered = [line for line in text.splitlines() if _is_numbered_result(line)]
+    details = {
+        "is_error": bool(getattr(result, "isError", False)),
+        "numbered_results": len(numbered),
+        "limit": limit,
+        "text_head": text[:400],
+    }
+    if details["is_error"]:
+        raise ProbeError(f"search tool returned an error: {text[:200]}")
+    if len(numbered) < min_results:
+        raise ProbeError(f"search tool returned {len(numbered)} results")
+    return f"{len(numbered)} numbered results through tools/call", details
 
-    async def call_fetch() -> tuple[str, dict[str, Any]]:
-        result = await _mcp_call(
-            args,
-            lambda session: session.call_tool("fetch", _fetch_payload()),
-        )
-        text = _tool_text(result)
-        header, _separator, body = text.partition("\n")
-        stripped = body.strip()
-        details = {
-            "is_error": bool(getattr(result, "isError", False)),
-            "header": header[:300],
-            "body_chars": len(stripped),
-        }
-        if details["is_error"]:
-            raise ProbeError(f"fetch tool returned an error: {text[:200]}")
-        if "egress:" not in header:
-            raise ProbeError("fetch tool header does not report the egress level")
-        if len(stripped) < MIN_FETCH_CHARS:
-            raise ProbeError(f"fetch tool body is {len(stripped)} chars")
-        haystack = stripped[:4000].lower()
-        for marker in VERIFICATION_MARKERS:
-            if marker in haystack:
-                raise ProbeError(f"fetch tool body is an interstitial: {marker}")
-        return f"{len(stripped)} chars through tools/call", details
 
+async def _mcp_fetch_probe(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
+    result = await _mcp_call(
+        args,
+        lambda session: session.call_tool("fetch", _fetch_payload()),
+    )
+    text = _tool_text(result)
+    header, _separator, body = text.partition("\n")
+    stripped = body.strip()
+    details = {
+        "is_error": bool(getattr(result, "isError", False)),
+        "header": header[:300],
+        "body_chars": len(stripped),
+    }
+    if details["is_error"]:
+        raise ProbeError(f"fetch tool returned an error: {text[:200]}")
+    if "egress:" not in header:
+        raise ProbeError("fetch tool header does not report the egress level")
+    if len(stripped) < MIN_FETCH_CHARS:
+        raise ProbeError(f"fetch tool body is {len(stripped)} chars")
+    haystack = stripped[:4000].lower()
+    for marker in VERIFICATION_MARKERS:
+        if marker in haystack:
+            raise ProbeError(f"fetch tool body is an interstitial: {marker}")
+    return f"{len(stripped)} chars through tools/call", details
+
+
+def check_mcp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
     _run_checks(
         recorder,
         [
-            ("mcp.tools_list", tools, 200),
-            ("mcp.call_search", call_search, 240),
-            ("mcp.call_fetch", call_fetch, 240),
+            ("mcp.tools_list", lambda: _mcp_tools_probe(args), 200),
+            (
+                "mcp.call_search",
+                lambda: _mcp_search_probe(
+                    args, limit=SMOKE_SEARCH_LIMIT, min_results=SMOKE_SEARCH_LIMIT
+                ),
+                240,
+            ),
+            ("mcp.call_fetch", lambda: _mcp_fetch_probe(args), 240),
         ],
     )
 
@@ -658,11 +678,16 @@ def check_authopen(recorder: ResultRecorder, args: argparse.Namespace) -> None:
 
     def password_is_none() -> tuple[str, dict[str, Any]]:
         raw, effective = _container_password_state()
-        details = {"user_password": raw, "effective_user_password": effective}
-        if raw is not None:
-            raise ProbeError(f"user_password is {raw!r}, not None; run --mode auth instead")
-        if effective is not None:
-            raise ProbeError("effective password is set although user_password is None")
+        # 只输出布尔状态：口令原文绝不能进异常消息、报告或 traceback。
+        details = {
+            "user_password_configured": raw is not None,
+            "effective_password_configured": effective is not None,
+        }
+        if raw is not None or effective is not None:
+            raise ProbeError(
+                "user_password is configured; expected None for the fail-closed "
+                "matrix; run --mode auth instead"
+            )
         return "user_password is None and the effective password is unset", details
 
     def matrix(entry: str) -> Any:
@@ -768,6 +793,53 @@ def _trace_fields(text: str) -> dict[str, str]:
     return fields
 
 
+IMPLEMENTATION_ERROR_MARKERS = (
+    "AttributeError",
+    "TypeError",
+    "KeyError",
+    "IndexError",
+    "ImportError",
+    "NameError",
+    "NotImplementedError",
+)
+
+
+def _warp_state_file() -> Path:
+    from souwen.server.warp import STATE_FILE
+
+    return STATE_FILE
+
+
+def _warp_state_details() -> dict[str, Any]:
+    """Read the manager's persisted state: the actual mode, not the recommended one.
+
+    ``WarpManager`` shares ``/run/souwen-warp.json`` with the server process, so
+    this is evidence of which start method really ran — 'installed' or
+    'recommended' from a capability probe is not.
+    """
+
+    try:
+        from souwen.server.warp import STATE_FILE, WarpState
+
+        raw = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        state = WarpState.from_dict(raw) if isinstance(raw, dict) else None
+    except Exception as exc:  # noqa: BLE001 - evidence collection must not crash a check
+        return {"state_file": "unreadable", "error": f"{type(exc).__name__}: {exc}"}
+    if state is None:
+        return {"state_file": "missing"}
+    return {
+        "state_file": str(STATE_FILE),
+        "mode": state.mode,
+        "status": state.status,
+        "owner": state.owner,
+        "ip": state.ip,
+        "last_error": (state.last_error or "")[:300] or None,
+        "implementation_error": any(
+            marker in (state.last_error or "") for marker in IMPLEMENTATION_ERROR_MARKERS
+        ),
+    }
+
+
 def warp_trace_direct(timeout: float = 30.0) -> dict[str, str]:
     """Read the Cloudflare trace over the container's direct egress."""
 
@@ -825,9 +897,15 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
                 }
             )
             if fields.get("warp") == "on":
-                return f"warp=on verified after {attempt} attempt(s)", {"history": history}
+                return (
+                    f"warp=on verified after {attempt} attempt(s)",
+                    {"history": history, "warp_state": _warp_state_details()},
+                )
             time.sleep(10)
-        raise ProbeError(f"warp=on not observed after {attempts} attempts: {history[-1:]}")
+        raise ProbeError(
+            f"warp=on not observed after {attempts} attempts: {history[-1:]}",
+            details={"history": history, "warp_state": _warp_state_details()},
+        )
 
     def exit_differs() -> tuple[str, dict[str, Any]]:
         direct = warp_trace_direct()
@@ -846,6 +924,16 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
     async def browser_via_warp() -> tuple[str, dict[str, Any]]:
         details = await browser_probe(BROWSER_PROBE_URL, proxy=proxy)
         return f"browser fetched {details['chars']} chars through WARP", details
+
+    async def mcp_after_warp() -> tuple[str, dict[str, Any]]:
+        search_message, search_details = await _mcp_search_probe(args, limit=1, min_results=1)
+        fetch_message, fetch_details = await _mcp_fetch_probe(args)
+        details = {
+            "mcp_search": search_details,
+            "mcp_fetch": fetch_details,
+            "warp_state": _warp_state_details(),
+        }
+        return f"MCP under WARP: {search_message}; {fetch_message}", details
 
     def http_after_warp() -> tuple[str, dict[str, Any]]:
         def probe() -> tuple[int, Any, int, Any]:
@@ -866,30 +954,36 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             return search_status, search_payload, fetch_status, fetch_payload
 
         (status, search_payload, fetch_status, fetch_payload), retry = with_one_retry(probe)
-        fetch_chars = (
-            len((fetch_payload or {}).get("content") or "")
-            if isinstance(fetch_payload, dict)
-            else 0
-        )
+        search_usable, search_total = usable_search_results(search_payload)
+        fetch_ok, fetch_reason = usable_fetch_body(fetch_payload)
         details = {
             "search_status": status,
-            "search_usable": usable_search_results(search_payload)[0],
+            "search_usable": search_usable,
+            "search_total": search_total,
             "search_sources": (search_payload or {}).get("sources")
             if isinstance(search_payload, dict)
             else None,
             "fetch_status": fetch_status,
+            "fetch_judgement": fetch_reason,
             "fetch_egress": (fetch_payload or {}).get("egress")
             if isinstance(fetch_payload, dict)
             else None,
-            "fetch_chars": fetch_chars,
+            "warp_state": _warp_state_details(),
             **retry,
         }
         if status != 200:
             raise ProbeError(f"/search returned {status} under WARP")
+        if search_total > 1:
+            raise ProbeError(f"/search returned {search_total} items for limit=1 under WARP")
+        if search_usable < 1:
+            raise ProbeError(
+                f"/search returned {search_usable}/{search_total} usable results under WARP",
+                details=details,
+            )
         if fetch_status != 200:
-            raise ProbeError(f"/fetch returned {fetch_status} under WARP")
-        if fetch_chars < MIN_FETCH_CHARS:
-            raise ProbeError(f"/fetch body is {fetch_chars} chars under WARP")
+            raise ProbeError(f"/fetch returned {fetch_status} under WARP", details=details)
+        if not fetch_ok:
+            raise ProbeError(f"/fetch body rejected under WARP: {fetch_reason}", details=details)
         return (
             f"/search and /fetch work under WARP (fetch egress={details['fetch_egress']})",
             details,
@@ -901,7 +995,90 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             ("warp.socks_egress", socks_egress, attempts * 40 + 120),
             ("warp.exit_differs", exit_differs, 180),
             ("warp.browser_via_warp", browser_via_warp, 300),
+            ("warp.mcp_after_warp", mcp_after_warp, 400),
             ("warp.http_after_warp", http_after_warp, 500),
+        ],
+    )
+
+
+# ------------------------------------------------------------- usque-forced mode
+
+
+def check_usque_forced(recorder: ResultRecorder, args: argparse.Namespace) -> None:
+    """Limited verification of a container started with ``WARP_MODE=usque``.
+
+    The point is evidence, not a pass: if the usque start method really runs
+    (manager mode ``usque`` and a real ``warp=on`` exit) the record says so; if
+    registration or the tunnel does not come up the record says unverified with
+    the manager's own error; an implementation error (AttributeError & co) is
+    a defect and must fail, never masquerade as an environment problem.
+    """
+
+    proxy = args.warp_proxy or WARP_SOCKS_PROXY
+    attempts = args.usque_attempts
+
+    def mode_requested() -> tuple[str, dict[str, Any]]:
+        from souwen.config import get_config
+
+        cfg = get_config()
+        details = {"warp_mode": cfg.warp_mode, "expected": "usque"}
+        if cfg.warp_mode != "usque":
+            raise ProbeError(f"container warp_mode is {cfg.warp_mode!r}, expected 'usque'")
+        return "container was started with WARP_MODE=usque", details
+
+    def socks_egress() -> tuple[str, dict[str, Any]]:
+        history: list[dict[str, Any]] = []
+        for attempt in range(1, attempts + 1):
+            try:
+                fields = warp_trace(proxy)
+            except ProbeError as exc:
+                history.append({"attempt": attempt, "error": str(exc)})
+                time.sleep(10)
+                continue
+            history.append(
+                {
+                    "attempt": attempt,
+                    "warp": fields.get("warp"),
+                    "ip": fields.get("ip"),
+                    "colo": fields.get("colo"),
+                }
+            )
+            if fields.get("warp") == "on":
+                return (
+                    f"warp=on verified after {attempt} attempt(s)",
+                    {"history": history, "warp_state": _warp_state_details()},
+                )
+            time.sleep(10)
+        state = _warp_state_details()
+        raise ProbeError(
+            f"warp=on not observed after {attempts} attempts under forced usque; "
+            f"manager state: {state}"
+        )
+
+    def actual_mode() -> tuple[str, dict[str, Any]]:
+        state = _warp_state_details()
+        if state.get("state_file") != str(_warp_state_file()):
+            raise CheckSkipped("WARP state file was not written; nothing to attribute")
+        if state.get("status") != "enabled":
+            raise ProbeError(f"WARP manager state is {state.get('status')!r}, not enabled")
+        if state.get("mode") != "usque":
+            raise ProbeError(
+                f"manager actually ran mode {state.get('mode')!r}, not usque; "
+                "the recommendation alone is not usage evidence"
+            )
+        return f"manager actually ran mode usque (status={state.get('status')})", state
+
+    async def browser_via_usque() -> tuple[str, dict[str, Any]]:
+        details = await browser_probe(BROWSER_PROBE_URL, proxy=proxy)
+        return f"browser fetched {details['chars']} chars through forced usque", details
+
+    _run_checks(
+        recorder,
+        [
+            ("usqueforced.mode_requested", mode_requested, 60),
+            ("usqueforced.socks_egress", socks_egress, attempts * 40 + 120),
+            ("usqueforced.actual_mode", actual_mode, 60),
+            ("usqueforced.browser_via_usque", browser_via_usque, 300),
         ],
     )
 
@@ -919,6 +1096,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--image-revision", default=None, help="Image revision label value")
     parser.add_argument("--warp-proxy", default=None, help=f"Defaults to {WARP_SOCKS_PROXY}")
     parser.add_argument("--warp-attempts", type=int, default=18)
+    parser.add_argument("--usque-attempts", type=int, default=12)
     parser.add_argument("--json-report", type=Path, default=None)
     parser.add_argument("--markdown-report", type=Path, default=None)
     parser.add_argument("--summary-file", type=Path, default=None)
@@ -944,6 +1122,7 @@ def main(argv: list[str] | None = None) -> int:
         "authopen": check_authopen,
         "browser": check_browser,
         "warp": check_warp,
+        "usque-forced": check_usque_forced,
     }
     handlers[args.mode](recorder, args)
 

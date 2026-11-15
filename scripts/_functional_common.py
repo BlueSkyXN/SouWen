@@ -277,6 +277,11 @@ async def run_check(
             "exception_type": exc.__class__.__name__,
             "traceback": traceback.format_exc(),
         }
+        # 探针可以在异常上携带自己的结构化证据（例如 WARP 尝试历史）；失败
+        # 记录必须保留它，否则失败诊断只剩 traceback、报告无法自解释。
+        probe_details = getattr(exc, "details", None)
+        if isinstance(probe_details, Mapping) and probe_details:
+            details.update(probe_details)
         outcome = Outcome.FAIL if required else Outcome.WARN
     duration = time.perf_counter() - start
     if timeout is not None and duration > timeout and outcome == Outcome.PASS:
