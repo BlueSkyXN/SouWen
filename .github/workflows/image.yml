@@ -33,9 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      # 只有真正空输入才默认 github.sha；非空但不是 40 位 commit SHA 的输入
-      # 立即失败。把输入当环境变量交给 shell，避免表达式注入，也避免把
-      # "输入写错" 变成 "发布另一个版本"。
+      # 只有真正空输入才默认 github.sha；非空输入必须整体恰好是 40 位十六进制
+      # commit SHA，前后空白、tab、CRLF、嵌入换行或附加变量行一律失败。把输入
+      # 当环境变量交给 shell，避免表达式注入，也避免把 "输入写错" 变成
+      # "发布另一个版本"。接受后统一小写，后续 checkout / verify / 构建 /
+      # ref 注入都使用这一个规范值。
       - name: Resolve SOUWEN_REF (empty input defaults to github.sha)
         env:
           SOUWEN_REF_INPUT: ${{ github.event.inputs.souwen_ref }}
@@ -45,12 +47,23 @@ jobs:
           if [ -z "$REF" ]; then
             REF="${GITHUB_SHA}"
             echo "no souwen_ref input; defaulting to github.sha=${REF}"
-          elif printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$'; then
-            echo "using explicit souwen_ref=${REF}"
           else
-            echo "::error::souwen_ref must be empty or a 40-hex commit SHA; got '${REF}'"
-            exit 1
+            # 长度与字符集都要满足，且必须对整串判定：case 的模式匹配把换行、
+            # 空格、tab 都算作非十六进制字符，不像 grep 那样逐行判断。
+            valid=1
+            [ "${#REF}" -eq 40 ] || valid=0
+            case "$REF" in
+              *[!0-9a-fA-F]*) valid=0 ;;
+            esac
+            if [ "$valid" -ne 1 ]; then
+              # 不原样回显输入：它可能含换行、控制字符或附加的变量行。
+              echo "::error::souwen_ref must be empty or a 40-hex commit SHA (got ${#REF} characters; whitespace, control characters and extra lines are rejected)"
+              exit 1
+            fi
+            REF="$(printf '%s' "$REF" | tr 'A-F' 'a-f')"
+            echo "using explicit souwen_ref=${REF}"
           fi
+          REF="$(printf '%s' "$REF" | tr 'A-F' 'a-f')"
           echo "SOUWEN_REF=${REF}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
