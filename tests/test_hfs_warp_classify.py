@@ -24,6 +24,7 @@ def _warp_checks(**overrides) -> list[dict]:
     checks = [
         _check("warp.socks_egress", "PASS", {"history": [{"attempt": 1, "warp": "on"}]}),
         _check("warp.exit_differs", "PASS"),
+        _check("warp.actual_mode", "PASS", {"mode": "usque", "status": "enabled"}),
         _check("warp.browser_via_warp", "PASS"),
         _check("warp.mcp_after_warp", "PASS"),
         _check("warp.http_after_warp", "PASS"),
@@ -132,6 +133,22 @@ class TestWarpLegClassification:
         verdict, reason = classify(_report(checks), kind="warp")
         assert verdict == VERDICT_FAIL
         assert "failed to read user input" in reason
+
+    def test_a_fallback_mode_is_recorded_not_hidden(self):
+        """推荐 usque 但实际回退 wireproxy：这是真实结果，不是失败也不是通过。"""
+
+        checks = _warp_checks(
+            replace=[("warp.actual_mode", "PASS", {"mode": "wireproxy", "status": "enabled"})]
+        )
+        verdict, reason = classify(_report(checks), kind="warp")
+        assert verdict == VERDICT_PASS
+        assert "actual_mode" not in reason
+
+    def test_an_unproven_actual_mode_fails_the_leg(self):
+        checks = _warp_checks(replace=[("warp.actual_mode", "FAIL", {"state_file": "missing"})])
+        verdict, reason = classify(_report(checks), kind="warp")
+        assert verdict == VERDICT_FAIL
+        assert "warp.actual_mode=FAIL" in reason
 
 
 class TestUsqueForcedClassification:

@@ -30,6 +30,9 @@ EXTERNAL_EGRESS_CHECK = "warp.socks_egress"
 WARP_CHECKS = (
     EXTERNAL_EGRESS_CHECK,
     "warp.exit_differs",
+    # 实际模式是必验项：推荐模式不等于实际跑的路径（usque 曾推荐但方法缺失，
+    # 代理只在回退 wireproxy 后才起来）。
+    "warp.actual_mode",
     "warp.browser_via_warp",
     "warp.mcp_after_warp",
     "warp.http_after_warp",

@@ -437,6 +437,18 @@ class TestWarpHttpJudgement:
             "_mcp_fetch_probe",
             lambda args: _for_test_async("42537 chars through tools/call", {}),
         )
+        # 不真的等待状态文件：这里只验证 HTTP 判定，WARP 模式由专门用例覆盖。
+        monkeypatch.setattr(check, "WARP_STATE_WAIT_SECONDS", 0.0)
+        monkeypatch.setattr(
+            check,
+            "_warp_state_details",
+            lambda **_kw: {
+                "state_file": "/run/souwen-warp.json",
+                "mode": "usque",
+                "status": "enabled",
+                "implementation_error": False,
+            },
+        )
 
         args = check.parse_args(["--mode", "warp", "--json-report", str(tmp_path / "warp.json")])
         recorder = ResultRecorder(script="hfs_image_check:warp", mode="warp")
@@ -499,8 +511,11 @@ class TestWarpHttpJudgement:
         )
         by_name = {c.name: c for c in recorder.checks}
         assert by_name["warp.http_after_warp"].outcome == Outcome.PASS
+        # 实际模式现在是必验项，不再只是附带信息。
+        assert by_name["warp.actual_mode"].outcome == Outcome.PASS
+        assert by_name["warp.actual_mode"].details["mode"] == "usque"
         state = by_name["warp.socks_egress"].details["warp_state"]
-        assert state["state_file"] in ("missing", "unreadable")
+        assert state["mode"] == "usque"
 
 
 def _for_test_async(message, details):
@@ -509,3 +524,49 @@ def _for_test_async(message, details):
         return (message, details)
 
     return _coro()
+
+
+class TestWarpStatePolling:
+    """复核残留项：manager 后台启动，状态文件稍后才落盘。
+
+    上一轮同一份报告里 `warp.socks_egress` 读到 unreadable、后续检查读到
+    mode=usque —— 同一状态两种答案。等待应当覆盖这个窗口。
+    """
+
+    @staticmethod
+    def _state_file(monkeypatch, tmp_path):
+        import souwen.server.warp as warp_module
+
+        path = tmp_path / "souwen-warp.json"
+        monkeypatch.setattr(warp_module, "STATE_FILE", path)
+        return path
+
+    def test_a_late_state_file_is_waited_for(self, monkeypatch, tmp_path):
+        path = self._state_file(monkeypatch, tmp_path)
+        monkeypatch.setattr(check.time, "sleep", lambda _seconds: None)
+        calls = {"n": 0}
+
+        def fake_read(_self, encoding=None):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise FileNotFoundError(path)
+            return '{"mode": "usque", "status": "enabled", "owner": "python"}'
+
+        monkeypatch.setattr(type(path), "read_text", fake_read, raising=False)
+        state = check._warp_state_details(wait_seconds=5)
+
+        assert state["mode"] == "usque"
+        assert state["status"] == "enabled"
+        assert calls["n"] == 3
+
+    def test_a_state_file_that_never_appears_is_reported_missing(self, monkeypatch, tmp_path):
+        self._state_file(monkeypatch, tmp_path)
+        monkeypatch.setattr(check.time, "sleep", lambda _seconds: None)
+        monkeypatch.setattr(
+            type(tmp_path),
+            "read_text",
+            lambda *_a, **_k: (_ for _ in ()).throw(FileNotFoundError()),
+        )
+        state = check._warp_state_details(wait_seconds=0)
+
+        assert state == {"state_file": "missing"}

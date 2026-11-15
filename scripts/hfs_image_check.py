@@ -793,6 +793,10 @@ def _trace_fields(text: str) -> dict[str, str]:
     return fields
 
 
+# manager 在后台任务里启动 WARP，状态文件是稍后才落盘的。探针首次读取可能
+# 早于写入，这里给它一点等待时间；测试把它设为 0 以免真的睡。
+WARP_STATE_WAIT_SECONDS = 30.0
+
 IMPLEMENTATION_ERROR_MARKERS = (
     "AttributeError",
     "TypeError",
@@ -815,34 +819,47 @@ def _warp_state_file() -> Path:
     return STATE_FILE
 
 
-def _warp_state_details() -> dict[str, Any]:
+def _warp_state_details(*, wait_seconds: float = 0.0) -> dict[str, Any]:
     """Read the manager's persisted state: the actual mode, not the recommended one.
 
     ``WarpManager`` shares ``/run/souwen-warp.json`` with the server process, so
     this is evidence of which start method really ran — 'installed' or
     'recommended' from a capability probe is not.
+
+    The manager starts WARP on a background task, so the file may not exist yet
+    when the first probe runs. ``wait_seconds`` polls instead of reporting a
+    transient "unreadable", which previously made two checks in one report
+    disagree about the same state.
     """
 
-    try:
-        from souwen.server.warp import STATE_FILE, WarpState
+    from souwen.server.warp import STATE_FILE, WarpState
 
-        raw = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        state = WarpState.from_dict(raw) if isinstance(raw, dict) else None
-    except Exception as exc:  # noqa: BLE001 - evidence collection must not crash a check
-        return {"state_file": "unreadable", "error": f"{type(exc).__name__}: {exc}"}
-    if state is None:
-        return {"state_file": "missing"}
-    return {
-        "state_file": str(STATE_FILE),
-        "mode": state.mode,
-        "status": state.status,
-        "owner": state.owner,
-        "ip": state.ip,
-        "last_error": (state.last_error or "")[:300] or None,
-        "implementation_error": any(
-            marker in (state.last_error or "") for marker in IMPLEMENTATION_ERROR_MARKERS
-        ),
-    }
+    expected = str(STATE_FILE)
+    deadline = time.monotonic() + max(wait_seconds, 0.0)
+    while True:
+        try:
+            raw = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            state = WarpState.from_dict(raw) if isinstance(raw, dict) else None
+        except FileNotFoundError:
+            if time.monotonic() >= deadline:
+                return {"state_file": "missing"}
+            time.sleep(1)
+            continue
+        except Exception as exc:  # noqa: BLE001 - evidence collection must not crash a check
+            return {"state_file": "unreadable", "error": f"{type(exc).__name__}: {exc}"}
+        if state is None:
+            return {"state_file": "unreadable", "error": "state file is not a JSON object"}
+        return {
+            "state_file": expected,
+            "mode": state.mode,
+            "status": state.status,
+            "owner": state.owner,
+            "ip": state.ip,
+            "last_error": (state.last_error or "")[:300] or None,
+            "implementation_error": any(
+                marker in (state.last_error or "") for marker in IMPLEMENTATION_ERROR_MARKERS
+            ),
+        }
 
 
 def warp_trace_direct(timeout: float = 30.0) -> dict[str, str]:
@@ -904,12 +921,18 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             if fields.get("warp") == "on":
                 return (
                     f"warp=on verified after {attempt} attempt(s)",
-                    {"history": history, "warp_state": _warp_state_details()},
+                    {
+                        "history": history,
+                        "warp_state": _warp_state_details(wait_seconds=WARP_STATE_WAIT_SECONDS),
+                    },
                 )
             time.sleep(10)
         raise ProbeError(
             f"warp=on not observed after {attempts} attempts: {history[-1:]}",
-            details={"history": history, "warp_state": _warp_state_details()},
+            details={
+                "history": history,
+                "warp_state": _warp_state_details(wait_seconds=WARP_STATE_WAIT_SECONDS),
+            },
         )
 
     def exit_differs() -> tuple[str, dict[str, Any]]:
@@ -994,11 +1017,34 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             details,
         )
 
+    def actual_mode() -> tuple[str, dict[str, Any]]:
+        """Record which start method really ran — auto may have fallen back.
+
+        The capability probe's recommendation is not usage evidence: usque was
+        recommended for several rounds while `_start_usque` was missing and the
+        proxy only came up after auto fell back to wireproxy. This check makes
+        the actual mode a required result instead of a detail nobody reads.
+        """
+
+        state = _warp_state_details(wait_seconds=WARP_STATE_WAIT_SECONDS)
+        if state.get("state_file") == "missing":
+            raise ProbeError(
+                "WARP manager never wrote its state file; the actual mode is unproven",
+                details=state,
+            )
+        if state.get("status") != "enabled":
+            raise ProbeError(
+                f"WARP manager state is {state.get('status')!r}, not enabled", details=state
+            )
+        mode = state.get("mode")
+        return f"manager actually ran mode {mode!r} (status={state.get('status')})", state
+
     _run_checks(
         recorder,
         [
             ("warp.socks_egress", socks_egress, attempts * 40 + 120),
             ("warp.exit_differs", exit_differs, 180),
+            ("warp.actual_mode", actual_mode, 90),
             ("warp.browser_via_warp", browser_via_warp, 300),
             ("warp.mcp_after_warp", mcp_after_warp, 400),
             ("warp.http_after_warp", http_after_warp, 500),
@@ -1051,10 +1097,13 @@ def check_usque_forced(recorder: ResultRecorder, args: argparse.Namespace) -> No
             if fields.get("warp") == "on":
                 return (
                     f"warp=on verified after {attempt} attempt(s)",
-                    {"history": history, "warp_state": _warp_state_details()},
+                    {
+                        "history": history,
+                        "warp_state": _warp_state_details(wait_seconds=WARP_STATE_WAIT_SECONDS),
+                    },
                 )
             time.sleep(10)
-        state = _warp_state_details()
+        state = _warp_state_details(wait_seconds=WARP_STATE_WAIT_SECONDS)
         # 失败必须带上尝试历史与 manager 状态：分类器要靠它区分外部不可用与
         # 实现缺陷，缺了这两项就只能看到一条 traceback。
         raise ProbeError(

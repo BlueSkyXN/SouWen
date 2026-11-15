@@ -30,6 +30,12 @@ _PASSING_WARP_REPORT = {
     "checks": [
         {"name": "warp.socks_egress", "outcome": "PASS", "required": True, "details": {}},
         {"name": "warp.exit_differs", "outcome": "PASS", "required": True, "details": {}},
+        {
+            "name": "warp.actual_mode",
+            "outcome": "PASS",
+            "required": True,
+            "details": {"mode": "usque", "status": "enabled"},
+        },
         {"name": "warp.browser_via_warp", "outcome": "PASS", "required": True, "details": {}},
         {"name": "warp.mcp_after_warp", "outcome": "PASS", "required": True, "details": {}},
         {"name": "warp.http_after_warp", "outcome": "PASS", "required": True, "details": {}},
@@ -43,6 +49,12 @@ _BROWSER_FAILURE_REPORT = {
     "checks": [
         {"name": "warp.socks_egress", "outcome": "PASS", "required": True, "details": {}},
         {"name": "warp.exit_differs", "outcome": "PASS", "required": True, "details": {}},
+        {
+            "name": "warp.actual_mode",
+            "outcome": "PASS",
+            "required": True,
+            "details": {"mode": "usque", "status": "enabled"},
+        },
         {
             "name": "warp.browser_via_warp",
             "outcome": "FAIL",
@@ -70,6 +82,12 @@ _EXTERNAL_UNAVAILABLE_REPORT = {
         },
         {
             "name": "warp.exit_differs",
+            "outcome": "FAIL",
+            "required": True,
+            "details": {"exception_type": "ProbeError"},
+        },
+        {
+            "name": "warp.actual_mode",
             "outcome": "FAIL",
             "required": True,
             "details": {"exception_type": "ProbeError"},
