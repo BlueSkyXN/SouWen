@@ -20,6 +20,10 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
+# usque: MASQUE/QUIC WARP 客户端。WarpManager 的 auto 候选链是
+# usque > wireproxy，缺了它就只能回退 wireproxy；实测回退路径在本镜像里
+# 起不来（WARP 代理验证超时），所以这里与根 Dockerfile 装同一套组件。
+ARG USQUE_VERSION=3.0.0
 
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
@@ -40,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# 预装 WARP 组件 (wireproxy 用户态 WireGuard + wgcf 注册工具)
+# 预装 WARP 组件 (usque MASQUE/QUIC + wireproxy 用户态 WireGuard + wgcf 注册工具)
 COPY --from=source-checkout /build/scripts/warp-checksums.txt /tmp/warp-checksums.txt
 RUN set -eu; \
     ARCH="$(dpkg --print-architecture)"; \
@@ -58,7 +62,12 @@ RUN set -eu; \
     verify wireproxy "${WIREPROXY_VERSION}" /tmp/wireproxy.tar.gz; \
     tar xzf /tmp/wireproxy.tar.gz -C /usr/local/bin/ wireproxy; \
     chmod +x /usr/local/bin/wireproxy; \
-    rm -f /tmp/wgcf /tmp/wireproxy.tar.gz /tmp/warp-checksums.txt
+    curl -fsSL -o /tmp/usque.zip \
+        "https://github.com/Diniboy1123/usque/releases/download/v${USQUE_VERSION}/usque_${USQUE_VERSION}_linux_${ARCH}.zip"; \
+    verify usque "${USQUE_VERSION}" /tmp/usque.zip; \
+    python -c "import zipfile; zipfile.ZipFile('/tmp/usque.zip').extract('usque', '/usr/local/bin')"; \
+    chmod +x /usr/local/bin/usque; \
+    rm -f /tmp/wgcf /tmp/wireproxy.tar.gz /tmp/usque.zip /tmp/warp-checksums.txt
 
 WORKDIR /app
 LABEL org.opencontainers.image.revision="${SOUWEN_REF}"
@@ -77,7 +86,11 @@ RUN pip install ".[server,mcp,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # Browser Worker 是 RC6 HFS 的必需进程。
-RUN playwright install chromium \
+# libatomic1 必须先装：playwright 自带的 node 驱动缺它连 --with-deps 都跑不起来
+# （根镜像的 941233d 已踩过这个坑，这里保持同一顺序）。
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && playwright install --with-deps chromium \
     && echo "✅ Playwright Chromium installed for Browser Worker"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
