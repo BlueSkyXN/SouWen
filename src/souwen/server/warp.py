@@ -884,6 +884,142 @@ class WarpManager:
         conf.write_text(text, encoding="utf-8")
         return conf
 
+    @staticmethod
+    def _build_usque_cmd(
+        usque_bin: str,
+        config_path: str,
+        subcommand: str,
+        bind_addr: str,
+        port: int,
+        *,
+        http2: bool,
+        username: str | None,
+        password: str | None,
+    ) -> list[str]:
+        """构造 usque CLI 命令（usque 3.x：-c 全局配置、--http2 传输回退、
+        socks/http-proxy 子命令的 --bind/--port 与 -u/-w 认证）。"""
+
+        cmd = [usque_bin, "-c", config_path]
+        if http2:
+            cmd.append("--http2")
+        cmd.extend([subcommand, "--bind", bind_addr, "--port", str(port)])
+        if username and password:
+            cmd.extend(["-u", username, "-w", password])
+        return cmd
+
+    @staticmethod
+    async def _usque_register(usque_bin: str, config_path: str) -> bool:
+        """调用 `usque register` 注册新的 WARP 账号并生成配置文件。
+
+        Returns:
+            True 注册成功且配置文件已生成，False 失败（可能触发速率限制）
+        """
+        from souwen.config import get_config
+
+        cfg = get_config()
+        cmd = [usque_bin, "-c", config_path, "register"]
+        if cfg.warp_device_name:
+            cmd.extend(["-n", cfg.warp_device_name])
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+        return result.returncode == 0 and Path(config_path).is_file()
+
+    async def _start_usque(self, socks_port: int, http_port: int, endpoint: str | None) -> None:
+        """启动 usque MASQUE/QUIC 代理
+
+        usque 是 Cloudflare WARP 的 MASQUE 协议开源实现。
+        支持 SOCKS5 和 HTTP 代理模式。
+
+        流程：
+            1. 查找 usque 二进制和配置文件
+            2. 如果没有配置，尝试自动注册 (usque register)
+            3. 启动 usque socks 或 usque http-proxy 子进程
+
+        Raises:
+            RuntimeError: usque 未安装、注册失败或传输健康检查失败
+        """
+        from souwen.config import get_config
+
+        cfg = get_config()
+        # usque 的连接端点由配置文件决定，CLI 没有 endpoint 覆盖参数。
+        _ = endpoint
+        bind_addr = cfg.warp_bind_address or "127.0.0.1"
+        transport = (cfg.warp_usque_transport or "auto").lower()
+
+        usque_bin = self._find_binary("usque", cfg.warp_usque_path)
+        if not usque_bin:
+            raise RuntimeError("usque 未安装")
+
+        # 确定配置文件路径
+        config_path = cfg.warp_usque_config
+        if not config_path:
+            # 默认查找路径: /app/data/usque-config.json > 当前目录 config.json
+            for candidate in (WARP_DATA_DIR / "usque-config.json", Path("config.json")):
+                if candidate.is_file():
+                    config_path = str(candidate)
+                    break
+
+        # 如果没有配置文件，尝试自动注册
+        if not config_path or not Path(config_path).is_file():
+            config_path = str(WARP_DATA_DIR / "usque-config.json")
+            Path(config_path).parent.mkdir(parents=True, exist_ok=True)
+            if not await self._usque_register(usque_bin, config_path):
+                raise RuntimeError("usque 注册失败（可能触发速率限制）")
+
+        async def start_usque_processes(*, http2: bool) -> None:
+            cmd = self._build_usque_cmd(
+                usque_bin,
+                config_path,
+                "socks",
+                bind_addr,
+                socks_port,
+                http2=http2,
+                username=cfg.warp_proxy_username,
+                password=cfg.warp_proxy_password,
+            )
+            self._process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._state.pid = self._process.pid
+            self._state.config_path = config_path
+            self._state.protocol = "masque"
+            self._state.proxy_type = "socks5"
+
+            # 如果配置了 HTTP 端口，额外启动 HTTP 代理进程
+            if http_port > 0:
+                http_cmd = self._build_usque_cmd(
+                    usque_bin,
+                    config_path,
+                    "http-proxy",
+                    bind_addr,
+                    http_port,
+                    http2=http2,
+                    username=cfg.warp_proxy_username,
+                    password=cfg.warp_proxy_password,
+                )
+                self._http_process = subprocess.Popen(
+                    http_cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self._state.http_port = http_port
+                self._state.proxy_type = "both"
+
+        use_http2 = transport == "http2"
+        await start_usque_processes(http2=use_http2)
+
+        # auto 传输先试 QUIC，起不来再回退 TCP/HTTP2；显式 transport 不重试。
+        if transport == "auto" and not await self._wait_for_proxy(
+            socks_port, cfg.warp_startup_timeout
+        ):
+            logger.warning("usque QUIC 启动健康检查失败，重试 HTTP/2 transport")
+            self._cleanup_failed_start("usque")
+            await start_usque_processes(http2=True)
+
     async def _start_external(self) -> None:
         """启动 external 外部代理模式
 
