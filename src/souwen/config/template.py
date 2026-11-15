@@ -33,7 +33,6 @@ web:
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~
-  bilibili_sessdata: ""
 
 # ===== 通用设置 =====
 general:
