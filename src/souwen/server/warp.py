@@ -908,23 +908,33 @@ class WarpManager:
         return cmd
 
     @staticmethod
-    async def _usque_register(usque_bin: str, config_path: str) -> bool:
+    async def _usque_register(usque_bin: str, config_path: str) -> tuple[bool, str]:
         """调用 `usque register` 注册新的 WARP 账号并生成配置文件。
 
+        必须带 `--accept-tos`：不带时 usque 会从 stdin 交互询问是否同意 TOS，
+        而服务进程的 stdin 不是终端（容器里是 /dev/null），读取失败后必然报
+        "failed to read user input"。wgcf 那条路径同样传了 `--accept-tos`。
+
         Returns:
-            True 注册成功且配置文件已生成，False 失败（可能触发速率限制）
+            (成功与否, 失败原因)。原因只放 usque 的 stderr 摘要，供诊断使用。
         """
         from souwen.config import get_config
 
         cfg = get_config()
-        cmd = [usque_bin, "-c", config_path, "register"]
+        cmd = [usque_bin, "-c", config_path, "register", "--accept-tos"]
         if cfg.warp_device_name:
             cmd.extend(["-n", cfg.warp_device_name])
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
-        return result.returncode == 0 and Path(config_path).is_file()
+        except subprocess.TimeoutExpired:
+            return False, "usque register 超时"
+        except FileNotFoundError:
+            return False, "usque 二进制不可执行"
+        if result.returncode == 0 and Path(config_path).is_file():
+            return True, ""
+        stderr = (result.stderr or result.stdout or "").strip().splitlines()
+        detail = stderr[-1][:200] if stderr else "no output"
+        return False, f"exit={result.returncode}: {detail}"
 
     async def _start_usque(self, socks_port: int, http_port: int, endpoint: str | None) -> None:
         """启动 usque MASQUE/QUIC 代理
@@ -965,8 +975,11 @@ class WarpManager:
         if not config_path or not Path(config_path).is_file():
             config_path = str(WARP_DATA_DIR / "usque-config.json")
             Path(config_path).parent.mkdir(parents=True, exist_ok=True)
-            if not await self._usque_register(usque_bin, config_path):
-                raise RuntimeError("usque 注册失败（可能触发速率限制）")
+            registered, reason = await self._usque_register(usque_bin, config_path)
+            if not registered:
+                # 把 usque 自己的失败原因带出去：否则调用方只能写“可能触发速率限制”，
+                # 真正的缺陷（例如缺 --accept-tos 导致读 stdin 失败）会被误判成环境问题。
+                raise RuntimeError(f"usque 注册失败: {reason}")
 
         async def start_usque_processes(*, http2: bool) -> None:
             cmd = self._build_usque_cmd(

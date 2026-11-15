@@ -81,10 +81,12 @@ def classify_warp_report(report: Any, *, expected_checks: tuple[str, ...]) -> tu
                 "environment problem"
             )
         history = (egress.get("details") or {}).get("history") or []
+        state = (egress.get("details") or {}).get("warp_state") or {}
+        last_error = state.get("last_error") or "not recorded"
         return VERDICT_UNVERIFIED, (
             "external WARP registration/egress never came up "
-            f"({len(history)} recorded attempt(s)); the WARP-dependent checks are "
-            "reported as unverified, not passed"
+            f"({len(history)} recorded attempt(s), manager last_error: {last_error!r}); "
+            "the WARP-dependent checks are reported as unverified, not passed"
         )
 
     failures = [name for name, check in checks.items() if check.get("outcome") == "FAIL"]

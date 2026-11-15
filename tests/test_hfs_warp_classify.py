@@ -109,6 +109,30 @@ class TestWarpLegClassification:
         assert "implementation error" in reason
         assert "_start_usque" in reason
 
+    def test_an_interactive_registration_failure_is_a_defect_not_the_network(self):
+        """usque register 不带 --accept-tos 时读 stdin 询问 TOS；容器里必然 EOF。"""
+
+        checks = _warp_checks(
+            replace=[
+                (
+                    "warp.socks_egress",
+                    "FAIL",
+                    {
+                        "history": [{"attempt": 1, "error": "ConnectError"}],
+                        "warp_state": {
+                            "mode": "usque",
+                            "status": "error",
+                            "last_error": "usque 注册失败: exit=1: failed to read user input",
+                            "implementation_error": True,
+                        },
+                    },
+                )
+            ]
+        )
+        verdict, reason = classify(_report(checks), kind="warp")
+        assert verdict == VERDICT_FAIL
+        assert "failed to read user input" in reason
+
 
 class TestUsqueForcedClassification:
     def test_usque_proven_when_the_manager_ran_usque(self):

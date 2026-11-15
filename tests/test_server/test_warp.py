@@ -123,6 +123,8 @@ class _FakeSubprocess:
 
         class _Result:
             returncode = 0
+            stdout = ""
+            stderr = ""
 
         return _Result()
 
@@ -275,12 +277,12 @@ def test_start_mode_usque_propagates_a_failed_registration(
     manager = WarpManager()
     monkeypatch.setattr(WarpManager, "_find_binary", staticmethod(lambda *_a: "usque"))
 
-    async def failed_register(*_args: object) -> bool:
-        return False
+    async def failed_register(*_args: object) -> tuple[bool, str]:
+        return False, "exit=1: failed to read user input"
 
     monkeypatch.setattr(WarpManager, "_usque_register", staticmethod(failed_register))
 
-    with pytest.raises(RuntimeError, match="usque 注册失败"):
+    with pytest.raises(RuntimeError, match="failed to read user input"):
         asyncio.run(manager._start_mode("usque", 1080, 0, None))
 
     assert fake.commands == []
@@ -297,7 +299,11 @@ def test_usque_register_builds_the_register_command(
     config_file = tmp_path / "registered.json"
     monkeypatch.setenv("WARP_DEVICE_NAME", "probe-device")
     asyncio.run(WarpManager._usque_register("usque", str(config_file)))
-    assert fake.run_calls == [["usque", "-c", str(config_file), "register", "-n", "probe-device"]]
+    # --accept-tos 不是可选项：不带它 usque 会读 stdin 询问 TOS，服务进程的
+    # stdin 不是终端，注册必然失败（容器里的真实失败形态）。
+    assert fake.run_calls == [
+        ["usque", "-c", str(config_file), "register", "--accept-tos", "-n", "probe-device"]
+    ]
 
 
 def test_start_mode_usque_is_dispatched_to_a_real_implementation(

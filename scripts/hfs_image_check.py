@@ -801,6 +801,11 @@ IMPLEMENTATION_ERROR_MARKERS = (
     "ImportError",
     "NameError",
     "NotImplementedError",
+    # usque 的交互式提示：服务进程没有终端，读到 EOF 就必然失败，每次都会复现。
+    # 这类失败是实现/配置缺陷，不能记成"外部注册不可用"。
+    "failed to read user input",
+    "user did not accept TOS",
+    "Config path is required",
 )
 
 
@@ -1050,9 +1055,12 @@ def check_usque_forced(recorder: ResultRecorder, args: argparse.Namespace) -> No
                 )
             time.sleep(10)
         state = _warp_state_details()
+        # 失败必须带上尝试历史与 manager 状态：分类器要靠它区分外部不可用与
+        # 实现缺陷，缺了这两项就只能看到一条 traceback。
         raise ProbeError(
             f"warp=on not observed after {attempts} attempts under forced usque; "
-            f"manager state: {state}"
+            f"manager state: {state}",
+            details={"history": history, "warp_state": state},
         )
 
     def actual_mode() -> tuple[str, dict[str, Any]]:
