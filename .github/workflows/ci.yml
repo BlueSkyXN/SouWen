@@ -1,10 +1,11 @@
-# 基础 CI：ruff、pytest、根镜像可构建。体检走 census.yml，镜像发布走 image.yml（P4）。
+# 基础 CI：ruff、pytest、根镜像可构建、HFS 镜像部署前验证。
+# 体检走 census.yml，镜像发布走 image.yml（P4，只写不跑）。
 
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, agent-first]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -70,7 +71,7 @@ jobs:
         run: |
           docker run -d --name souwen-ci -p 127.0.0.1:49365:49265 \
             -e PORT=49265 -e WARP_ENABLED=0 souwen-ci:local
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:49365/healthz > /dev/null 2>&1; then
               echo "healthz OK"; docker rm -f souwen-ci; exit 0
             fi
@@ -79,3 +80,260 @@ jobs:
           docker logs souwen-ci || true
           docker rm -f souwen-ci || true
           exit 1
+
+  # 部署前验证：构建 Space 实际消费的 cloud/hfs/Dockerfile，并在容器里跑
+  # HTTP / MCP / 鉴权 / 浏览器 / WARP 的实际调用。不推送、不部署、不重启
+  # Space，也不用 image.yml（它是发布路径，只写不跑）。
+  hfs-image:
+    name: HFS image (deploy-time verify)
+    # 只有 push 才验证：source-checkout 阶段要按 SHA 从公开仓库拉取源码，
+    # fork 来的 PR 里那个 SHA 不存在。
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      HFS_IMAGE_TAG: souwen-hfs-verify:local
+      HFS_SMOKE_PASSWORD: hfs-smoke-password
+      HFS_PORT: "49265"
+      OFF_PORT: "49375"
+      OPEN_PORT: "49376"
+      ON_PORT: "49377"
+      REPORTS: hfs-image-reports
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record the selected source SHA
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          test "${#SHA}" -eq 40
+          echo "SOUWEN_REF=${SHA}" >> "$GITHUB_ENV"
+          echo "selected source SHA: ${SHA}"
+
+      # 复现 Space 的构建上下文与 ref 注入语义：只带 Dockerfile 与它 COPY 的
+      # entrypoint.sh，源码由 Dockerfile 自己按 ARG 拉取；改写 ARG 默认值而不是
+      # 传 --build-arg，这样被验证的就是 Space 真正走的默认值路径。
+      - name: Assemble the Space build context
+        run: |
+          set -euo pipefail
+          CTX="${RUNNER_TEMP}/hfs-context"
+          rm -rf "$CTX"
+          mkdir -p "$CTX"
+          cp cloud/hfs/Dockerfile "$CTX/Dockerfile"
+          cp entrypoint.sh "$CTX/entrypoint.sh"
+          sed -i "s/^ARG SOUWEN_REF=.*/ARG SOUWEN_REF=${SOUWEN_REF}/" "$CTX/Dockerfile"
+          grep -q "^ARG SOUWEN_REF=${SOUWEN_REF}$" "$CTX/Dockerfile"
+          # 这一行是在匹配 Dockerfile 里的字面文本，不是本脚本的变量展开。
+          # shellcheck disable=SC2016
+          grep -q 'git fetch --depth 1 origin "${SOUWEN_REF}"' "$CTX/Dockerfile"
+          test -s "$CTX/entrypoint.sh"
+          echo "HFS_CONTEXT=${CTX}" >> "$GITHUB_ENV"
+          echo "build context (Space file selection):"
+          ls -l "$CTX"
+
+      - name: Build the HFS Dockerfile
+        run: |
+          set -euo pipefail
+          docker build --progress=plain -t "$HFS_IMAGE_TAG" "$HFS_CONTEXT"
+
+      - name: Verify the image revision label
+        run: |
+          set -euo pipefail
+          LABEL="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$HFS_IMAGE_TAG")"
+          echo "image revision label: ${LABEL}"
+          test "$LABEL" = "$SOUWEN_REF"
+          echo "HFS_IMAGE_REVISION=${LABEL}" >> "$GITHUB_ENV"
+
+      # ---- WARP 关：构建身份 + HTTP + MCP + 鉴权 ----
+      - name: Start the WARP-off container
+        run: |
+          set -euo pipefail
+          docker run -d --name hfs-off \
+            -p "127.0.0.1:${OFF_PORT}:${HFS_PORT}" \
+            -e PORT="${HFS_PORT}" \
+            -e SOUWEN_USER_PASSWORD="$HFS_SMOKE_PASSWORD" \
+            -e WARP_ENABLED=0 \
+            "$HFS_IMAGE_TAG"
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${OFF_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK after ${i} attempts"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::container never became healthy"
+          docker logs hfs-off | tail -120
+          exit 1
+
+      - name: Check the entrypoint file matches the checkout
+        run: |
+          set -euo pipefail
+          IN_IMAGE="$(docker exec hfs-off sha256sum /usr/local/bin/entrypoint.sh | awk '{print $1}')"
+          IN_REPO="$(sha256sum entrypoint.sh | awk '{print $1}')"
+          echo "entrypoint sha256 in image: ${IN_IMAGE}"
+          echo "entrypoint sha256 in repo:  ${IN_REPO}"
+          test "$IN_IMAGE" = "$IN_REPO"
+
+      - name: Check image identity inside the container
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-off python -m scripts.hfs_image_check \
+            --mode image \
+            --expected-sha "$SOUWEN_REF" \
+            --image-revision "$HFS_IMAGE_REVISION" \
+            --json-report /tmp/report-image.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-off:/tmp/report-image.json "${REPORTS}/image.json"
+
+      - name: Check HTTP search and fetch
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-off python -m scripts.hfs_image_check \
+            --mode http \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --json-report /tmp/report-http.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-off:/tmp/report-http.json "${REPORTS}/http.json"
+
+      - name: Check MCP tools and real tool calls
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-off python -m scripts.hfs_image_check \
+            --mode mcp \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --json-report /tmp/report-mcp.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-off:/tmp/report-mcp.json "${REPORTS}/mcp.json"
+
+      - name: Check the credential matrix with a password configured
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-off python -m scripts.hfs_image_check \
+            --mode auth \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --json-report /tmp/report-auth.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-off:/tmp/report-auth.json "${REPORTS}/auth.json"
+
+      - name: Check the browser level through the production path
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          # 装好目录不等于能用：这里实际启动 Chromium，经生产 fetch_page_content
+          # （含连接级 SSRF pinning）取一个页面，失败必须让 job 变红。
+          docker exec hfs-off python -m scripts.hfs_image_check \
+            --mode browser \
+            --json-report /tmp/report-browser.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-off:/tmp/report-browser.json "${REPORTS}/browser.json"
+
+      - name: Dump the WARP-off container log
+        if: always()
+        run: docker logs hfs-off 2>&1 | tail -150 || true
+
+      # ---- 未配置密码：三个入口都要 fail closed ----
+      - name: Start the no-password container
+        run: |
+          set -euo pipefail
+          docker rm -f hfs-off > /dev/null 2>&1 || true
+          docker run -d --name hfs-open \
+            -p "127.0.0.1:${OPEN_PORT}:${HFS_PORT}" \
+            -e PORT="${HFS_PORT}" \
+            -e WARP_ENABLED=0 \
+            "$HFS_IMAGE_TAG"
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${OPEN_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK after ${i} attempts"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::no-password container never became healthy"
+          docker logs hfs-open | tail -120
+          exit 1
+
+      - name: Check fail-closed behaviour when the password is None
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-open python -m scripts.hfs_image_check \
+            --mode authopen \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --json-report /tmp/report-authopen.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-open:/tmp/report-authopen.json "${REPORTS}/authopen.json"
+
+      - name: Dump the no-password container log
+        if: always()
+        run: docker logs hfs-open 2>&1 | tail -100 || true
+
+      # ---- WARP 开：同一镜像的真实出口 ----
+      - name: Start the WARP-on container
+        run: |
+          set -euo pipefail
+          docker rm -f hfs-open > /dev/null 2>&1 || true
+          docker run -d --name hfs-on \
+            -p "127.0.0.1:${ON_PORT}:${HFS_PORT}" \
+            -e PORT="${HFS_PORT}" \
+            -e SOUWEN_USER_PASSWORD="$HFS_SMOKE_PASSWORD" \
+            -e WARP_ENABLED=1 \
+            "$HFS_IMAGE_TAG"
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${ON_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK after ${i} attempts"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::WARP-on container never became healthy"
+          docker logs hfs-on | tail -120
+          exit 1
+
+      - name: Check the real WARP exit and the proxied browser path
+        id: warp
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORTS}"
+          docker exec hfs-on python -m scripts.hfs_image_check \
+            --mode warp \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --json-report /tmp/report-warp.json | tee -a "$GITHUB_STEP_SUMMARY"
+          docker cp hfs-on:/tmp/report-warp.json "${REPORTS}/warp.json"
+
+      - name: Record the WARP-on container log
+        if: always()
+        run: |
+          docker logs hfs-on 2>&1 | tail -150 > "${REPORTS}/warp-container.log" || true
+          cat "${REPORTS}/warp-container.log" || true
+
+      - name: Summarise the WARP leg
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.warp.outcome }}" = "success" ]; then
+            echo "WARP leg: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "WARP leg: NOT VERIFIED (exit=${{ steps.warp.outcome }})"
+              echo ""
+              echo "WARP registration or the upstream network failed inside this"
+              echo "image. This is recorded as unverified, not as a pass; the"
+              echo "direct fallback above is reported separately and does not"
+              echo "stand in for a WARP result."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove the containers
+        if: always()
+        run: docker rm -f hfs-off hfs-open hfs-on > /dev/null 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hfs-image-reports
+          path: hfs-image-reports/
+          retention-days: 30
+          if-no-files-found: warn
