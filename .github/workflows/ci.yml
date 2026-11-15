@@ -98,6 +98,7 @@ jobs:
       OFF_PORT: "49375"
       OPEN_PORT: "49376"
       ON_PORT: "49377"
+      USQUE_PORT: "49378"
       REPORTS: hfs-image-reports
     steps:
       - uses: actions/checkout@v4
@@ -176,58 +177,43 @@ jobs:
 
       - name: Check image identity inside the container
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-off python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-off image \
             --mode image \
             --expected-sha "$SOUWEN_REF" \
             --image-revision "$HFS_IMAGE_REVISION" \
-            --json-report /tmp/report-image.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-off:/tmp/report-image.json "${REPORTS}/image.json"
+            --json-report /tmp/report-image.json
 
       - name: Check HTTP search and fetch
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-off python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-off http \
             --mode http \
             --base-url "http://127.0.0.1:${HFS_PORT}" \
             --password "$HFS_SMOKE_PASSWORD" \
-            --json-report /tmp/report-http.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-off:/tmp/report-http.json "${REPORTS}/http.json"
+            --json-report /tmp/report-http.json
 
       - name: Check MCP tools and real tool calls
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-off python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-off mcp \
             --mode mcp \
             --base-url "http://127.0.0.1:${HFS_PORT}" \
             --password "$HFS_SMOKE_PASSWORD" \
-            --json-report /tmp/report-mcp.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-off:/tmp/report-mcp.json "${REPORTS}/mcp.json"
+            --json-report /tmp/report-mcp.json
 
       - name: Check the credential matrix with a password configured
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-off python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-off auth \
             --mode auth \
             --base-url "http://127.0.0.1:${HFS_PORT}" \
             --password "$HFS_SMOKE_PASSWORD" \
-            --json-report /tmp/report-auth.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-off:/tmp/report-auth.json "${REPORTS}/auth.json"
+            --json-report /tmp/report-auth.json
 
       - name: Check the browser level through the production path
+        # 装好目录不等于能用：这里实际启动 Chromium，经生产 fetch_page_content
+        # （含连接级 SSRF pinning）取一个页面，失败必须让 job 变红。
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          # 装好目录不等于能用：这里实际启动 Chromium，经生产 fetch_page_content
-          # （含连接级 SSRF pinning）取一个页面，失败必须让 job 变红。
-          docker exec hfs-off python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-off browser \
             --mode browser \
-            --json-report /tmp/report-browser.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-off:/tmp/report-browser.json "${REPORTS}/browser.json"
+            --json-report /tmp/report-browser.json
 
       - name: Dump the WARP-off container log
         if: always()
@@ -256,13 +242,10 @@ jobs:
 
       - name: Check fail-closed behaviour when the password is None
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-open python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-open authopen \
             --mode authopen \
             --base-url "http://127.0.0.1:${HFS_PORT}" \
-            --json-report /tmp/report-authopen.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-open:/tmp/report-authopen.json "${REPORTS}/authopen.json"
+            --json-report /tmp/report-authopen.json
 
       - name: Dump the no-password container log
         if: always()
@@ -290,18 +273,18 @@ jobs:
           docker logs hfs-on | tail -120
           exit 1
 
+      # WARP 腿：探针退出码先保留、报告先复制，再按报告内容分类判定。
+      # 只有 socks_egress（外部注册/出口探针）失败可记“未验证”；实现错误、
+      # 已连通后的 browser/MCP/HTTP 必验失败、报告缺失或损坏都必须让 job 变红。
       - name: Check the real WARP exit and the proxied browser path
-        id: warp
-        continue-on-error: true
+        env:
+          HFS_KEEP_GOING: "1"
         run: |
-          set -euo pipefail
-          mkdir -p "${REPORTS}"
-          docker exec hfs-on python -m scripts.hfs_image_check \
+          bash scripts/ci/hfs_probe_step.sh hfs-on warp \
             --mode warp \
             --base-url "http://127.0.0.1:${HFS_PORT}" \
             --password "$HFS_SMOKE_PASSWORD" \
-            --json-report /tmp/report-warp.json | tee -a "$GITHUB_STEP_SUMMARY"
-          docker cp hfs-on:/tmp/report-warp.json "${REPORTS}/warp.json"
+            --json-report /tmp/report-warp.json
 
       - name: Record the WARP-on container log
         if: always()
@@ -309,26 +292,62 @@ jobs:
           docker logs hfs-on 2>&1 | tail -150 > "${REPORTS}/warp-container.log" || true
           cat "${REPORTS}/warp-container.log" || true
 
-      - name: Summarise the WARP leg
-        if: always()
+      - name: Classify the WARP leg result
+        run: |
+          python3 scripts/hfs_warp_classify.py \
+            --kind warp \
+            --json-report "${REPORTS}/warp.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+      # ---- 强制 usque：有限验证，记录实际模式，不许把实现错误说成环境问题 ----
+      - name: Start the forced-usque container
         run: |
           set -euo pipefail
-          if [ "${{ steps.warp.outcome }}" = "success" ]; then
-            echo "WARP leg: PASS" >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "WARP leg: NOT VERIFIED (exit=${{ steps.warp.outcome }})"
-              echo ""
-              echo "WARP registration or the upstream network failed inside this"
-              echo "image. This is recorded as unverified, not as a pass; the"
-              echo "direct fallback above is reported separately and does not"
-              echo "stand in for a WARP result."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          docker rm -f hfs-on > /dev/null 2>&1 || true
+          docker run -d --name hfs-usque \
+            -p "127.0.0.1:${USQUE_PORT}:${HFS_PORT}" \
+            -e PORT="${HFS_PORT}" \
+            -e SOUWEN_USER_PASSWORD="$HFS_SMOKE_PASSWORD" \
+            -e WARP_ENABLED=1 \
+            -e WARP_MODE=usque \
+            "$HFS_IMAGE_TAG"
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${USQUE_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK after ${i} attempts"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::forced-usque container never became healthy"
+          docker logs hfs-usque | tail -120
+          exit 1
+
+      - name: Verify the forced-usque start path with limited attempts
+        env:
+          HFS_KEEP_GOING: "1"
+        run: |
+          bash scripts/ci/hfs_probe_step.sh hfs-usque usque-forced \
+            --mode usque-forced \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --json-report /tmp/report-usque-forced.json
+
+      - name: Record the forced-usque container log
+        if: always()
+        run: |
+          docker logs hfs-usque 2>&1 | tail -150 > "${REPORTS}/usque-container.log" || true
+          cat "${REPORTS}/usque-container.log" || true
+
+      - name: Classify the forced-usque result
+        run: |
+          python3 scripts/hfs_warp_classify.py \
+            --kind usque-forced \
+            --json-report "${REPORTS}/usque-forced.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the containers
         if: always()
-        run: docker rm -f hfs-off hfs-open hfs-on > /dev/null 2>&1 || true
+        run: docker rm -f hfs-off hfs-open hfs-on hfs-usque > /dev/null 2>&1 || true
 
       - uses: actions/upload-artifact@v4
         if: always()
