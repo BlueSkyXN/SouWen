@@ -20,9 +20,10 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
-# usque: MASQUE/QUIC WARP 客户端。WarpManager 的 auto 候选链是
-# usque > wireproxy，缺了它就只能回退 wireproxy；实测回退路径在本镜像里
-# 起不来（WARP 代理验证超时），所以这里与根 Dockerfile 装同一套组件。
+# usque: MASQUE/QUIC WARP 客户端。auto 候选链是 usque > wireproxy，但此前
+# _start_mode("usque") 调用的 _start_usque 方法在整个源码树里不存在——容器日志
+# 记录了 AttributeError 后回退 wireproxy 成功。装上二进制不等于补上启动路径，
+# 两条模式都必须真实可用，所以这里与根 Dockerfile 装同一套组件。
 ARG USQUE_VERSION=3.0.0
 
 ENV PORT=49265 \
@@ -86,8 +87,8 @@ RUN pip install ".[server,mcp,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # Browser Worker 是 RC6 HFS 的必需进程。
-# libatomic1 必须先装：playwright 自带的 node 驱动缺它连 --with-deps 都跑不起来
-# （根镜像的 941233d 已踩过这个坑，这里保持同一顺序）。
+# libatomic1 是显式依赖对齐：与根镜像保持同一份声明，不依赖 base 镜像的传递依赖。
+# 本镜像此前没有声明它时 Chromium 也能渲染（它是传递依赖），所以这不是缺库修复。
 RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
     && rm -rf /var/lib/apt/lists/* \
     && playwright install --with-deps chromium \
