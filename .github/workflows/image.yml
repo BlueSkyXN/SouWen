@@ -33,22 +33,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Resolve SOUWEN_REF (default HEAD of default branch)
+      # 只有真正空输入才默认 github.sha；非空但不是 40 位 commit SHA 的输入
+      # 立即失败。把输入当环境变量交给 shell，避免表达式注入，也避免把
+      # "输入写错" 变成 "发布另一个版本"。
+      - name: Resolve SOUWEN_REF (empty input defaults to github.sha)
+        env:
+          SOUWEN_REF_INPUT: ${{ github.event.inputs.souwen_ref }}
         run: |
-          REF="${{ github.event.inputs.souwen_ref }}"
-          printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$' || REF=""
+          set -euo pipefail
+          REF="${SOUWEN_REF_INPUT:-}"
+          if [ -z "$REF" ]; then
+            REF="${GITHUB_SHA}"
+            echo "no souwen_ref input; defaulting to github.sha=${REF}"
+          elif printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            echo "using explicit souwen_ref=${REF}"
+          else
+            echo "::error::souwen_ref must be empty or a 40-hex commit SHA; got '${REF}'"
+            exit 1
+          fi
           echo "SOUWEN_REF=${REF}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.SOUWEN_REF == '' && github.sha || env.SOUWEN_REF }}
+          ref: ${{ env.SOUWEN_REF }}
 
       - name: Verify checked-out tree matches SOUWEN_REF
         run: |
-          REF="${SOUWEN_REF:-$(git rev-parse HEAD)}"
+          set -euo pipefail
+          REF="${SOUWEN_REF:?SOUWEN_REF must be resolved before checkout}"
           test "$(git rev-parse HEAD)" = "$REF" || {
             echo "checkout mismatch: HEAD=$(git rev-parse HEAD) expected=$REF"; exit 1; }
-          echo "SOUWEN_REF=$REF" >> "$GITHUB_ENV"
           echo "releasing exactly $(git rev-parse --short HEAD)"
 
       - name: Build root image from the selected SHA
@@ -61,7 +75,7 @@ jobs:
         run: |
           docker run -d --name souwen-release -p 127.0.0.1:49365:49265 \
             -e PORT=49265 -e WARP_ENABLED=0 "$IMAGE_TAG"
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:49365/healthz > /dev/null 2>&1; then
               echo "healthz OK"; docker rm -f souwen-release; exit 0
             fi
