@@ -229,6 +229,9 @@ class TestOneRetry:
 
 
 class TestBrowserProbe:
+    """The probe is a coroutine: calling it inside the check loop must not
+    spawn a second event loop, which is what broke the first cloud run."""
+
     def test_a_short_browser_body_fails(self, monkeypatch):
         class _Outcome:
             content = "   tiny   "
@@ -240,7 +243,7 @@ class TestBrowserProbe:
 
         monkeypatch.setattr(check, "_browser_fetch", fake_fetch)
         with pytest.raises(check.ProbeError, match="too short"):
-            check.browser_probe(check.BROWSER_PROBE_URL, proxy=None)
+            asyncio.run(check.browser_probe(check.BROWSER_PROBE_URL, proxy=None))
 
     def test_a_real_body_passes_and_reports_the_exit(self, monkeypatch):
         class _Outcome:
@@ -252,10 +255,27 @@ class TestBrowserProbe:
             return _Outcome()
 
         monkeypatch.setattr(check, "_browser_fetch", fake_fetch)
-        details = check.browser_probe(check.BROWSER_PROBE_URL, proxy="socks5://127.0.0.1:1080")
+        details = asyncio.run(
+            check.browser_probe(check.BROWSER_PROBE_URL, proxy="socks5://127.0.0.1:1080")
+        )
         assert details["chars"] == 200
         assert details["proxy"] == "socks5://127.0.0.1:1080"
         assert details["final_url"] == "https://example.com/"
+
+    def test_probe_is_a_coroutine_function(self):
+        assert asyncio.iscoroutinefunction(check.browser_probe)
+
+    def test_a_browser_failure_is_retried_exactly_once(self, monkeypatch):
+        calls: list[int] = []
+
+        async def fake_fetch(url, *, proxy):
+            calls.append(1)
+            raise check.ProbeError("browser acquisition failed: browser_unavailable")
+
+        monkeypatch.setattr(check, "_browser_fetch", fake_fetch)
+        with pytest.raises(check.ProbeError):
+            asyncio.run(check.browser_probe(check.BROWSER_PROBE_URL, proxy=None))
+        assert len(calls) == 2
 
 
 class TestFailureSemantics:

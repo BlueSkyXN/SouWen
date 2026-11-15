@@ -195,6 +195,18 @@ def with_one_retry(probe: Callable[[], Any]) -> tuple[Any, dict[str, Any]]:
     raise ProbeError("; ".join(failures))
 
 
+async def with_one_retry_async(probe: Callable[[], Any]) -> tuple[Any, dict[str, Any]]:
+    """Awaiting variant of :func:`with_one_retry` for checks already in a loop."""
+
+    failures: list[str] = []
+    for attempt in (1, 2):
+        try:
+            return await probe(), {"attempts": attempt, "first_failure": failures[:1]}
+        except ProbeError as exc:
+            failures.append(f"attempt {attempt}: {exc}")
+    raise ProbeError("; ".join(failures))
+
+
 def _run_checks(recorder: ResultRecorder, checks: list[tuple[str, Any, float]]) -> None:
     """Run every check in order, awaiting each one, and let a failure stand."""
 
@@ -692,7 +704,7 @@ async def _browser_fetch(url: str, *, proxy: str | None) -> Any:
     )
 
 
-def browser_probe(url: str, *, proxy: str | None) -> dict[str, Any]:
+async def browser_probe(url: str, *, proxy: str | None) -> dict[str, Any]:
     """Drive the production browser path once (one retry) and judge the body."""
 
     from souwen.common_runtime.provider_support.browser_fetch import (
@@ -700,9 +712,9 @@ def browser_probe(url: str, *, proxy: str | None) -> dict[str, Any]:
         chromium_available,
     )
 
-    def probe() -> dict[str, Any]:
+    async def probe() -> dict[str, Any]:
         try:
-            outcome = asyncio.run(_browser_fetch(url, proxy=proxy))
+            outcome = await _browser_fetch(url, proxy=proxy)
         except BrowserAcquisitionError as exc:
             raise ProbeError(f"browser acquisition failed: {exc.code}") from None
         body = outcome.content.strip()
@@ -716,7 +728,7 @@ def browser_probe(url: str, *, proxy: str | None) -> dict[str, Any]:
             "chars": len(body),
         }
 
-    details, retry = with_one_retry(probe)
+    details, retry = await with_one_retry_async(probe)
     details.update(retry)
     details["chromium_available"] = chromium_available()
     return details
@@ -731,8 +743,8 @@ def check_browser(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             raise ProbeError("Chromium is not installed in this image")
         return "Chromium is installed", {"chromium_available": available}
 
-    def render() -> tuple[str, dict[str, Any]]:
-        details = browser_probe(BROWSER_PROBE_URL, proxy=None)
+    async def render() -> tuple[str, dict[str, Any]]:
+        details = await browser_probe(BROWSER_PROBE_URL, proxy=None)
         return f"rendered {details['chars']} chars through fetch_page_content", details
 
     _run_checks(
@@ -831,8 +843,8 @@ def check_warp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
             raise ProbeError("proxied and direct exit IP are identical")
         return "proxied exit IP differs from the direct exit IP", details
 
-    def browser_via_warp() -> tuple[str, dict[str, Any]]:
-        details = browser_probe(BROWSER_PROBE_URL, proxy=proxy)
+    async def browser_via_warp() -> tuple[str, dict[str, Any]]:
+        details = await browser_probe(BROWSER_PROBE_URL, proxy=proxy)
         return f"browser fetched {details['chars']} chars through WARP", details
 
     def http_after_warp() -> tuple[str, dict[str, Any]]:
