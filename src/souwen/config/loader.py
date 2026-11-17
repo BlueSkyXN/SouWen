@@ -188,7 +188,13 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
         except (ValueError, TypeError):
             logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
             return None
-    if field_name in ("proxy_pool", "cors_origins", "trusted_proxies"):
+    if field_name in (
+        "proxy_pool",
+        "cors_origins",
+        "trusted_proxies",
+        "mcp_allowed_hosts",
+        "mcp_allowed_origins",
+    ):
         stripped = val.strip()
         if stripped.startswith("["):
             try:

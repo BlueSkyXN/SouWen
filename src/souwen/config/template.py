@@ -49,6 +49,15 @@ general:
 server:
   # 用户密码（保护搜索和 /sources）
   user_password: ~
+  # /mcp 允许的 Host 头（精确匹配，或 "host:*" 放行任意端口）。
+  # 留空使用默认：loopback（127.0.0.1/localhost/[::1] 任意端口）+ 平台注入的
+  # SPACE_HOST（HF Spaces 自动提供）。显式配置则完全取代默认。
+  # 自托管在反代后需要写反代会转发的 Host，例如: ["proxy.example.com"]
+  mcp_allowed_hosts: []
+  # /mcp 允许的 Origin。留空 = 不允许任何带 Origin 的请求（Agent 客户端不带
+  # Origin，不受影响）；浏览器直连需要显式列出，例如:
+  # ["https://proxy.example.com"]
+  mcp_allowed_origins: []
   # 管理密码（保护全部管理端点）
   # 是否启用游客访问（无 Token 也可访问搜索端点，受限源+限速）
   # 允许跨域的来源列表（CORS Origins），留空表示不启用 CORS

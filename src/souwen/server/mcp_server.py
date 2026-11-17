@@ -8,10 +8,14 @@ app (see ``server/app.py``; the session manager must run in the app lifespan).
 
 from __future__ import annotations
 
+import os
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from souwen.agent import AgentRuntime
+from souwen.config.loader import get_config
+from souwen.config.models import SouWenConfig
 from souwen.modules.fetch.application.reader import (
     DEFAULT_MAX_CHARS,
     format_fetch_error,
@@ -55,15 +59,56 @@ _MCP_INSTRUCTIONS = (
 )
 
 
-def build_mcp_server(runtime: AgentRuntime) -> FastMCP:
+def _resolve_transport_security(config: SouWenConfig) -> TransportSecuritySettings:
+    """合成 /mcp 的 Host/Origin 允许列表（保持 SDK 的 DNS-rebinding 防护开启）。
+
+    默认放行两类主机：
+
+    - loopback（``127.0.0.1`` / ``localhost`` / ``::1``，任意端口）：本地 HTTP
+      客户端与容器内探针的默认用法；
+    - 平台注入的 ``SPACE_HOST``（裸主机名，如 ``<space>.hf.space``）：HF Spaces
+      官方运行时变量，只在 Space 里存在，值由平台控制，不来自请求头。
+
+    显式配置 ``mcp_allowed_hosts`` / ``mcp_allowed_origins`` 时完全取代默认
+    hosts（loopback 也不例外，测试里用显式 ``testserver`` 就是这种情况）；
+    origins 默认为空列表——Origin 缺失的请求本来就放行，带 Origin 的浏览器
+    场景需要显式列出。禁止从请求的 Host/Origin/forwarded 头动态扩充。
+    """
+
+    hosts: list[str]
+    if config.mcp_allowed_hosts:
+        hosts = list(config.mcp_allowed_hosts)
+    else:
+        hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        space_host = os.environ.get("SPACE_HOST", "").strip()
+        # 只接受形如裸主机名的值（无 scheme、无路径、非通配）；逐字符校验
+        # 而不是正则，避免把任意输入放进来。
+        if (
+            space_host
+            and all(ch.isalnum() or ch in "-._" for ch in space_host)
+            and "." in space_host
+        ):
+            hosts.append(space_host)
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=hosts,
+        allowed_origins=list(config.mcp_allowed_origins),
+    )
+
+
+def build_mcp_server(runtime: AgentRuntime, config: SouWenConfig | None = None) -> FastMCP:
     # FastMCP 默认 host="127.0.0.1"，mcp>=1.30 据此自动开启 DNS-rebinding 防护并把
     # allowed_hosts 限定为 localhost。反代后 Host 是部署域名（如 *.hf.space），POST /mcp
-    # 会拿到 421 Invalid Host header。容器内探针打 127.0.0.1 发现不了。鉴权由
-    # McpAuthMiddleware（fail-closed）独立承担，这里显式关闭 SDK 层 host 校验。
+    # 曾拿到 421 Invalid Host header。这里不整体关闭防护（那会放行任意 Host/Origin），
+    # 而是按配置合成精确的允许列表：loopback + SPACE_HOST（HF 平台变量）或用户显式
+    # 配置。鉴权仍由 McpAuthMiddleware（fail-closed）独立承担，三层语义互不替代。
     mcp: FastMCP = FastMCP(
         "souwen",
         instructions=_MCP_INSTRUCTIONS,
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        transport_security=_resolve_transport_security(
+            config if config is not None else get_config()
+        ),
     )
 
     @mcp.tool(description=_SEARCH_TOOL_DESCRIPTION)

@@ -190,6 +190,12 @@ class SouWenConfig(BaseModel):
 
     # ===== 服务（认证） =====
     user_password: str | None = None  # 用户密码(保护搜索和 /sources)
+    # /mcp 允许的 Host 头（精确匹配，或 "host:*" 放行任意端口）。默认为空时
+    # 由 server 侧合成 loopback + 平台主机（SPACE_HOST）；显式配置则完全取代默认。
+    mcp_allowed_hosts: list[str] = Field(default_factory=list)
+    # /mcp 允许的 Origin（精确匹配或通配端口）。Origin 缺失的请求不受限（标准
+    # Agent 客户端不带 Origin）；带值则必须在列表内。
+    mcp_allowed_origins: list[str] = Field(default_factory=list)
 
     @property
     def effective_user_password(self) -> str | None:
