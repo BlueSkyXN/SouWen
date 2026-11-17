@@ -9,6 +9,7 @@ app (see ``server/app.py``; the session manager must run in the app lifespan).
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from souwen.agent import AgentRuntime
 from souwen.modules.fetch.application.reader import (
@@ -55,7 +56,15 @@ _MCP_INSTRUCTIONS = (
 
 
 def build_mcp_server(runtime: AgentRuntime) -> FastMCP:
-    mcp: FastMCP = FastMCP("souwen", instructions=_MCP_INSTRUCTIONS)
+    # FastMCP 默认 host="127.0.0.1"，mcp>=1.30 据此自动开启 DNS-rebinding 防护并把
+    # allowed_hosts 限定为 localhost。反代后 Host 是部署域名（如 *.hf.space），POST /mcp
+    # 会拿到 421 Invalid Host header。容器内探针打 127.0.0.1 发现不了。鉴权由
+    # McpAuthMiddleware（fail-closed）独立承担，这里显式关闭 SDK 层 host 校验。
+    mcp: FastMCP = FastMCP(
+        "souwen",
+        instructions=_MCP_INSTRUCTIONS,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
 
     @mcp.tool(description=_SEARCH_TOOL_DESCRIPTION)
     async def search(query: str, domain: str = "web", limit: int = 8) -> str:

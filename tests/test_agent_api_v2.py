@@ -279,6 +279,45 @@ async def test_mcp_exposes_exactly_search_and_fetch(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_mcp_streamable_app_accepts_reverse_proxy_host_headers() -> None:
+    """反代部署（HF Space 等）下 POST /mcp 不能被 SDK 的 Host 校验拒绝。
+
+    mcp>=1.30 在 FastMCP 默认 host=127.0.0.1 时自动开启 DNS-rebinding 防护，
+    allowed_hosts 只含 localhost；反代转发的 Host 是部署域名，曾在线上拿到
+    421 Invalid Host header。鉴权由 McpAuthMiddleware 承担，这里断言
+    streamable app 对外部 Host 头放行（进入正常协议协商而非 421）。
+    """
+
+    from starlette.testclient import TestClient
+
+    from souwen.server.mcp_server import build_mcp_server
+
+    app = build_mcp_server(_FakeAgentRuntime()).streamable_http_app()
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "proxy-host-probe", "version": "0"},
+        },
+    }
+
+    async with app.router.lifespan_context(app):
+        client = TestClient(app)
+        for host in ("blueskyxn-souwen.hf.space", "example.internal:8443"):
+            response = client.post(
+                "/mcp",
+                json=initialize,
+                headers={"Host": host, "Accept": "text/event-stream"},
+            )
+            assert response.status_code != 421, (
+                f"Host={host} was rejected by transport security: {response.text[:120]}"
+            )
+
+
+@pytest.mark.asyncio
 async def test_three_entries_agree_on_the_same_underlying_result(monkeypatch) -> None:
     import souwen.agent as agent_module
     from souwen.server.mcp_server import build_mcp_server
