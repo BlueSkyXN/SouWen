@@ -375,7 +375,15 @@ async def test_mcp_transport_security_settings_default_and_space_host(monkeypatc
     monkeypatch.delenv("SPACE_HOST", raising=False)
     default = _resolve_transport_security(SouWenConfig())
     assert default.enable_dns_rebinding_protection is True
-    assert sorted(default.allowed_hosts) == ["127.0.0.1:*", "[::1]:*", "localhost:*"]
+    # 裸主机与端口通配都在：SDK 的 host:* 不匹配无端口 Host，正常默认端口可省略
+    assert sorted(default.allowed_hosts) == [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "[::1]",
+        "[::1]:*",
+        "localhost",
+        "localhost:*",
+    ]
     assert default.allowed_origins == []
 
     monkeypatch.setenv("SPACE_HOST", "demo-example.hf.space")
@@ -387,6 +395,318 @@ async def test_mcp_transport_security_settings_default_and_space_host(monkeypatc
     for bad in ("https://evil.example.com/path", "*.hf.space", "no-dot-host", "a b.hf.space"):
         monkeypatch.setenv("SPACE_HOST", bad)
         assert bad not in _resolve_transport_security(SouWenConfig()).allowed_hosts, bad
+
+
+@pytest.mark.asyncio
+async def test_mcp_default_allowlist_accepts_bare_loopback_hosts(monkeypatch) -> None:
+    """默认允许表下，六种 loopback Host 形态的 initialize 必须全部成功。
+
+    修前反例（f6bffcd）：SDK 的 ``host:*`` 通配不匹配无端口 Host，裸
+    ``localhost`` / ``127.0.0.1`` / ``[::1]`` 曾被 421。正常默认端口可省略，
+    不能要求客户端补 ``:80`` 绕过。未允许 Host 仍必须 421。
+    """
+
+    from httpx import ASGITransport, AsyncClient
+
+    from souwen.config.models import SouWenConfig
+    from souwen.server.mcp_server import build_mcp_server
+
+    monkeypatch.delenv("SPACE_HOST", raising=False)
+    app = build_mcp_server(_FakeAgentRuntime(), SouWenConfig()).streamable_http_app()
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "loopback-probe", "version": "0"},
+        },
+    }
+
+    async def post(client: AsyncClient, host: str):
+        request = client.build_request(
+            "POST",
+            "http://testserver/mcp",
+            json=initialize,
+            headers={"Host": host, "Accept": "application/json, text/event-stream"},
+        )
+        response = await client.send(request, stream=True)
+        body = b""
+        if response.status_code == 200:
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) >= 4096:
+                    break
+        else:
+            body = await response.aread()
+        await response.aclose()
+        return response.status_code, body.decode("utf-8", "replace")
+
+    transport = ASGITransport(app=app)
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            for host in (
+                "localhost",
+                "localhost:80",
+                "127.0.0.1",
+                "127.0.0.1:80",
+                "[::1]",
+                "[::1]:80",
+            ):
+                status, body = await post(client, host)
+                assert status == 200, f"Host={host} should pass, got {status}"
+                assert "serverInfo" in body, f"Host={host} handshake body missing serverInfo"
+            status, _ = await post(client, "evil.example.com")
+            assert status == 421, "unlisted host must stay rejected"
+
+
+def _mcp_stack(
+    monkeypatch,
+    *,
+    config: SouWenConfig,
+    runtime: _FakeAgentRuntime | None = None,
+):
+    """生产形态的 /mcp 栈：FastMCP streamable app 外包真实 McpAuthMiddleware。
+
+    鉴权中间件读 ``souwen.server.auth.get_config()``，与生产挂载
+    （``app.add_middleware(McpAuthMiddleware)`` 后 mount）同一语义。
+    """
+
+    from souwen.server.auth import McpAuthMiddleware
+    from souwen.server.mcp_server import build_mcp_server
+
+    monkeypatch.setattr("souwen.server.auth.get_config", lambda: config)
+    app = build_mcp_server(runtime or _FakeAgentRuntime(), config).streamable_http_app()
+    return McpAuthMiddleware(app)
+
+
+@pytest.mark.asyncio
+async def test_mcp_full_tool_calls_behind_reverse_proxy_with_auth_matrix(monkeypatch) -> None:
+    """反代 Host + 真实鉴权中间件下的完整 MCP 协议链与凭据组合。
+
+    完整链：initialize → tools/list（恰好 search/fetch）→ search tools/call →
+    fetch tools/call，以收到对应 JSON-RPC 结果为完成条件（不是状态码或
+    单个字段名）。覆盖 SPACE_HOST 自动放行路径。凭据组合按 auth.py 语义：
+    X-SouWen-Token 显式存在时权威（错误自定义 token 不回退 Bearer）。
+    """
+
+    from httpx import ASGITransport, AsyncClient
+
+    from souwen.config.models import SouWenConfig
+
+    monkeypatch.setenv("SPACE_HOST", "demo-example.hf.space")
+    password = "probe-pass-1"
+    config = SouWenConfig(user_password=password)
+    stack = _mcp_stack(monkeypatch, config=config)
+
+    async def rpc(client: AsyncClient, headers: dict, payload: dict) -> tuple[int, str, str | None]:
+        request = client.build_request(
+            "POST",
+            "http://demo-example.hf.space/mcp",
+            json=payload,
+            headers={
+                "Host": "demo-example.hf.space",
+                "Accept": "application/json, text/event-stream",
+                **headers,
+            },
+        )
+        response = await client.send(request, stream=True)
+        body = b""
+        if response.status_code == 200:
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) >= 16384:
+                    break
+        else:
+            body = await response.aread()
+        session = response.headers.get("mcp-session-id")
+        await response.aclose()
+        return response.status_code, body.decode("utf-8", "replace"), session
+
+    def with_session(headers: dict, session: str | None) -> dict:
+        # 会话建立后的请求必须带 mcp-session-id（真实客户端行为）
+        return {**headers, "mcp-session-id": session} if session else headers
+
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "stack-probe", "version": "0"},
+        },
+    }
+
+    good = {"Authorization": f"Bearer {password}"}
+
+    transport = ASGITransport(app=stack)
+    async with stack.app.router.lifespan_context(stack.app):
+        async with AsyncClient(
+            transport=transport, base_url="http://demo-example.hf.space"
+        ) as client:
+            # --- 拒绝矩阵（允许 Host 前提下）---
+            status, _, _ = await rpc(client, {}, initialize)
+            assert status == 401, f"no credential on password-protected /mcp: {status}"
+            status, _, _ = await rpc(client, {"Authorization": "Bearer wrong"}, initialize)
+            assert status == 401
+            # X-SouWen-Token 显式存在即权威：正确 Bearer + 错误自定义 token 仍 401
+            status, _, _ = await rpc(
+                client,
+                {"Authorization": f"Bearer {password}", "X-SouWen-Token": "wrong"},
+                initialize,
+            )
+            assert status == 401, "wrong custom token must override a valid Bearer"
+            # X-SouWen-Token 正确 → 可用
+            status, body, _ = await rpc(client, {"X-SouWen-Token": password}, initialize)
+            assert status == 200 and "serverInfo" in body
+            # 未允许 Host（凭据正确）→ 421，先于鉴权
+            request = client.build_request(
+                "POST",
+                "http://demo-example.hf.space/mcp",
+                json=initialize,
+                headers={
+                    "Host": "host-not-allowed.example.com",
+                    "Accept": "application/json, text/event-stream",
+                    **good,
+                },
+            )
+            response = await client.send(request, stream=True)
+            assert response.status_code == 421
+            await response.aclose()
+            # 允许 Host + 未允许 Origin（凭据正确）→ 403
+            request = client.build_request(
+                "POST",
+                "http://demo-example.hf.space/mcp",
+                json=initialize,
+                headers={
+                    "Host": "demo-example.hf.space",
+                    "Origin": "https://evil.example.com",
+                    "Accept": "application/json, text/event-stream",
+                    **good,
+                },
+            )
+            response = await client.send(request, stream=True)
+            assert response.status_code == 403
+            await response.aclose()
+
+            # --- 完整协议链（正确 Bearer，无 Origin）---
+            status, body, session = await rpc(client, good, initialize)
+            assert status == 200 and "serverInfo" in body
+            assert session, "initialize must return an mcp-session-id"
+            status, body, _ = await rpc(
+                client,
+                with_session(good, session),
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            )
+            assert status == 200 and '"search"' in body and '"fetch"' in body, body[:200]
+
+            status, body, _ = await rpc(
+                client,
+                with_session(good, session),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search",
+                        "arguments": {"query": "transformer", "domain": "paper", "limit": 3},
+                    },
+                },
+            )
+            assert status == 200, f"search tools/call failed: {body[:200]}"
+            # SSE data 行里 text 是 JSON 字符串（内层引号被转义），断言裸文本与
+            # 结构化字段，并确认 isError=false（isError=true 不算成功）。
+            assert "Attention Is All You Need" in body, "search result content missing"
+            assert "arxiv.org/abs/1706.03762" in body
+            assert "results from: openalex" in body
+            assert '"isError":false' in body, f"search tool reported an error: {body[:300]}"
+
+            status, body, _ = await rpc(
+                client,
+                with_session(good, session),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 4,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "fetch",
+                        "arguments": {"url": "https://example.com/a", "max_chars": 2000},
+                    },
+                },
+            )
+            assert status == 200, f"fetch tools/call failed: {body[:200]}"
+            # fetch 工具输出是分页元信息行 + 正文：检查 title/chars/egress 与正文
+            assert "title: Example" in body, "fetch header line missing"
+            assert "chars: 1-4 of 4" in body, "fetch pagination info missing"
+            assert "egress: direct" in body
+            assert '"isError":false' in body, f"fetch tool reported an error: {body[:300]}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "password,headers,expected",
+    (
+        # 口令 None：fail closed，任何凭据都 401
+        (None, {}, 401),
+        (None, {"Authorization": "Bearer anything"}, 401),
+        (None, {"X-SouWen-Token": "anything"}, 401),
+        # 显式空口令：开放，无凭据可 initialize 成功
+        ("", {}, 200),
+        # 非空口令：正确自定义头可用
+        ("pw", {"X-SouWen-Token": "pw"}, 200),
+    ),
+)
+async def test_mcp_auth_modes_behind_allowed_host(monkeypatch, password, headers, expected) -> None:
+    """允许 Host 下三种口令模式与两种凭据头的组合（auth.py 语义不变）。"""
+
+    from httpx import ASGITransport, AsyncClient
+
+    from souwen.config.models import SouWenConfig
+
+    monkeypatch.setenv("SPACE_HOST", "demo-example.hf.space")
+    config = SouWenConfig(user_password=password)
+    stack = _mcp_stack(monkeypatch, config=config)
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "mode-probe", "version": "0"},
+        },
+    }
+
+    transport = ASGITransport(app=stack)
+    async with stack.app.router.lifespan_context(stack.app):
+        async with AsyncClient(
+            transport=transport, base_url="http://demo-example.hf.space"
+        ) as client:
+            request = client.build_request(
+                "POST",
+                "http://demo-example.hf.space/mcp",
+                json=initialize,
+                headers={
+                    "Host": "demo-example.hf.space",
+                    "Accept": "application/json, text/event-stream",
+                    **headers,
+                },
+            )
+            response = await client.send(request, stream=True)
+            body = b""
+            if response.status_code == 200:
+                async for chunk in response.aiter_bytes():
+                    body += chunk
+                    if len(body) >= 4096:
+                        break
+            await response.aclose()
+            assert response.status_code == expected, (
+                f"password={password!r} headers={headers} -> {response.status_code}, want {expected}"
+            )
+            if expected == 200:
+                assert "serverInfo" in body.decode("utf-8", "replace")
 
 
 @pytest.mark.asyncio

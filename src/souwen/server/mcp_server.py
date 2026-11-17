@@ -79,7 +79,16 @@ def _resolve_transport_security(config: SouWenConfig) -> TransportSecuritySettin
     if config.mcp_allowed_hosts:
         hosts = list(config.mcp_allowed_hosts)
     else:
-        hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        # 裸主机与端口通配都要有：SDK 的 `host:*` 只匹配带端口的 Host，正常默认
+        # 端口可以省略（Host: localhost），不能要求客户端补 :80 来通过校验。
+        hosts = [
+            "127.0.0.1",
+            "localhost",
+            "[::1]",
+            "127.0.0.1:*",
+            "localhost:*",
+            "[::1]:*",
+        ]
         space_host = os.environ.get("SPACE_HOST", "").strip()
         # 只接受形如裸主机名的值（无 scheme、无路径、非通配）；逐字符校验
         # 而不是正则，避免把任意输入放进来。
