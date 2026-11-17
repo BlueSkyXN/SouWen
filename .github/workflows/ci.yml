@@ -96,6 +96,9 @@ jobs:
       HFS_SMOKE_PASSWORD: hfs-smoke-password
       HFS_PORT: "49265"
       OFF_PORT: "49375"
+      # 模拟 HF 平台注入的 SPACE_HOST（保留域名示例），供 mcpproxy 探针使用；
+      # TCP 仍连容器内 loopback，只有 HTTP Host 头携带该域名。
+      HFS_PROBE_SPACE_HOST: demo-space.hf.space
       OPEN_PORT: "49376"
       ON_PORT: "49377"
       USQUE_PORT: "49378"
@@ -153,6 +156,7 @@ jobs:
             -p "127.0.0.1:${OFF_PORT}:${HFS_PORT}" \
             -e PORT="${HFS_PORT}" \
             -e SOUWEN_USER_PASSWORD="$HFS_SMOKE_PASSWORD" \
+            -e SPACE_HOST="${HFS_PROBE_SPACE_HOST}" \
             -e WARP_ENABLED=0 \
             "$HFS_IMAGE_TAG"
           for i in $(seq 1 90); do
@@ -198,6 +202,19 @@ jobs:
             --base-url "http://127.0.0.1:${HFS_PORT}" \
             --password "$HFS_SMOKE_PASSWORD" \
             --json-report /tmp/report-mcp.json
+
+      # 反代 Host 验证：容器带 SPACE_HOST 启动，模拟 HF 平台变量；TCP 连容器
+      # loopback，HTTP Host 携带部署域名。真实握手必须成功（421 曾在线上发生而
+      # 容器内 127.0.0.1 探针全绿），未允许的 Host/Origin 必须被 421/403 拒绝。
+      - name: Check MCP behind a reverse-proxy Host
+        run: |
+          bash scripts/ci/hfs_probe_step.sh hfs-off mcpproxy \
+            --mode mcpproxy \
+            --base-url "http://127.0.0.1:${HFS_PORT}" \
+            --password "$HFS_SMOKE_PASSWORD" \
+            --proxy-host "$HFS_PROBE_SPACE_HOST" \
+            --denied-host "host-not-allowed.example.com" \
+            --json-report /tmp/report-mcpproxy.json
 
       - name: Check the credential matrix with a password configured
         run: |

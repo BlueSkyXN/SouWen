@@ -279,20 +279,30 @@ async def test_mcp_exposes_exactly_search_and_fetch(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_mcp_streamable_app_accepts_reverse_proxy_host_headers() -> None:
-    """反代部署（HF Space 等）下 POST /mcp 不能被 SDK 的 Host 校验拒绝。
+async def test_mcp_streamable_app_reverse_proxy_host_policy(monkeypatch) -> None:
+    """反代部署（HF Space 等）下 /mcp 的 Host/Origin 校验必须是精确放行。
 
-    mcp>=1.30 在 FastMCP 默认 host=127.0.0.1 时自动开启 DNS-rebinding 防护，
-    allowed_hosts 只含 localhost；反代转发的 Host 是部署域名，曾在线上拿到
-    421 Invalid Host header。鉴权由 McpAuthMiddleware 承担，这里断言
-    streamable app 对外部 Host 头放行（进入正常协议协商而非 421）。
+    背景：mcp>=1.30 在 FastMCP 默认 host=127.0.0.1 时自动开 DNS-rebinding 防护
+    （allowed_hosts 仅 localhost），HF 边缘转发的 Host 是部署域名，线上曾全 421。
+    修法不是整体关防护（那会放行任意 Host/Origin），而是合成允许列表：
+    loopback + SPACE_HOST（平台注入）或显式配置。
+
+    真实协议链：生产 build_mcp_server 的 streamable app + 真实 initialize 请求，
+    断言具体状态码与 serverInfo，不用「不等于 421」当判据。200 响应是 SSE
+    长流，用流式请求拿到状态行即关闭，不消费 body（否则测试会等会话超时）。
     """
 
-    from starlette.testclient import TestClient
+    import httpx
+    from httpx import ASGITransport, AsyncClient
 
+    from souwen.config.models import SouWenConfig
     from souwen.server.mcp_server import build_mcp_server
 
-    app = build_mcp_server(_FakeAgentRuntime()).streamable_http_app()
+    config = SouWenConfig(
+        mcp_allowed_hosts=["proxy.example.com", "proxy.example.com:*"],
+        mcp_allowed_origins=["https://proxy.example.com"],
+    )
+    app = build_mcp_server(_FakeAgentRuntime(), config).streamable_http_app()
     initialize = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -304,17 +314,79 @@ async def test_mcp_streamable_app_accepts_reverse_proxy_host_headers() -> None:
         },
     }
 
+    async def post(client: AsyncClient, host: str, origin: str | None = None):
+        headers = {"Accept": "application/json, text/event-stream", "Host": host}
+        if origin:
+            headers["Origin"] = origin
+        request = client.build_request(
+            "POST", "http://testserver/mcp", json=initialize, headers=headers
+        )
+        response = await client.send(request, stream=True)
+        # 200 是 SSE 长流：initialize 响应分多块到达，读前 4KB 足够覆盖
+        # serverInfo；拒绝响应（421/403）则读全文。
+        body = b""
+        try:
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if response.status_code == 200 and len(body) >= 4096:
+                    break
+        except httpx.StreamClosed:  # pragma: no cover - defensive
+            pass
+        await response.aclose()
+        return response.status_code, body.decode("utf-8", "replace")
+
+    transport = ASGITransport(app=app)
     async with app.router.lifespan_context(app):
-        client = TestClient(app)
-        for host in ("blueskyxn-souwen.hf.space", "example.internal:8443"):
-            response = client.post(
-                "/mcp",
-                json=initialize,
-                headers={"Host": host, "Accept": "text/event-stream"},
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            # 允许的 Host → 200 且握手返回 serverInfo
+            status, body = await post(client, "proxy.example.com")
+            assert status == 200, f"allowed host got {status}"
+            assert "serverInfo" in body
+            # 通配端口的允许 Host → 200
+            status, _ = await post(client, "proxy.example.com:8443")
+            assert status == 200
+            # 未允许 Host → 421（Host 校验拒绝，先于协议与鉴权）
+            status, _ = await post(client, "blueskyxn-souwen.hf.space")
+            assert status == 421, f"unlisted host should be rejected with 421, got {status}"
+            # 允许 Host + 未允许 Origin → 403（Origin 校验拒绝）
+            status, _ = await post(
+                client, "proxy.example.com:8443", origin="https://evil.example.com"
             )
-            assert response.status_code != 421, (
-                f"Host={host} was rejected by transport security: {response.text[:120]}"
+            assert status == 403, f"unlisted origin should be rejected with 403, got {status}"
+            # 允许 Host + 允许 Origin → 200
+            status, _ = await post(
+                client, "proxy.example.com:8443", origin="https://proxy.example.com"
             )
+            assert status == 200
+
+
+@pytest.mark.asyncio
+async def test_mcp_transport_security_settings_default_and_space_host(monkeypatch) -> None:
+    """默认允许表 = loopback 任意端口；HF Spaces 注入 SPACE_HOST 时精确追加该主机。
+
+    SPACE_HOST 是 HF 官方运行时变量（裸主机名，如 ``<space>.hf.space``），值由
+    平台控制而非请求头。非法形态（带 scheme/path/通配）必须被忽略，防止把任意
+    环境值放大成放行项。
+    """
+
+    from souwen.config.models import SouWenConfig
+    from souwen.server.mcp_server import _resolve_transport_security
+
+    monkeypatch.delenv("SPACE_HOST", raising=False)
+    default = _resolve_transport_security(SouWenConfig())
+    assert default.enable_dns_rebinding_protection is True
+    assert sorted(default.allowed_hosts) == ["127.0.0.1:*", "[::1]:*", "localhost:*"]
+    assert default.allowed_origins == []
+
+    monkeypatch.setenv("SPACE_HOST", "demo-example.hf.space")
+    with_space = _resolve_transport_security(SouWenConfig())
+    assert "demo-example.hf.space" in with_space.allowed_hosts
+    # 通配 HF 域名不行：SPACE_HOST 是具体主机，不是后缀匹配
+    assert "other.hf.space" not in with_space.allowed_hosts
+
+    for bad in ("https://evil.example.com/path", "*.hf.space", "no-dot-host", "a b.hf.space"):
+        monkeypatch.setenv("SPACE_HOST", bad)
+        assert bad not in _resolve_transport_security(SouWenConfig()).allowed_hosts, bad
 
 
 @pytest.mark.asyncio

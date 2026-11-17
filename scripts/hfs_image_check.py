@@ -43,7 +43,7 @@ from typing import Any
 
 from scripts._functional_common import CheckSkipped, ResultRecorder, run_check
 
-MODES = ("image", "http", "mcp", "auth", "authopen", "browser", "warp", "usque-forced")
+MODES = ("image", "http", "mcp", "mcpproxy", "auth", "authopen", "browser", "warp", "usque-forced")
 
 # Frozen smoke inputs, taken from scripts/census/queries.json. Chosen before the
 # first run and not swapped afterwards: paper passed 10/10 on both census legs,
@@ -545,6 +545,140 @@ def check_mcp(recorder: ResultRecorder, args: argparse.Namespace) -> None:
                 240,
             ),
             ("mcp.call_fetch", lambda: _mcp_fetch_probe(args), 240),
+        ],
+    )
+
+
+# ------------------------------------------------- mcp reverse-proxy host mode
+
+
+async def _mcp_raw_post(
+    url: str, headers: dict[str, str], timeout: float = 30.0
+) -> tuple[int, str]:
+    """One raw initialize POST. Returns (status, body head). No SDK session.
+
+    Used only for negative expectations (421/403) — the handshake there fails
+    before any protocol exchange, so raw status checks are the exact behavior
+    under test.
+    """
+
+    import httpx
+
+    body = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "hfs-proxy-check", "version": "0"},
+            },
+        }
+    )
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, content=body, headers=headers)
+        return response.status_code, response.text[:200]
+
+
+async def _mcp_proxy_handshake_probe(
+    args: argparse.Namespace,
+) -> tuple[str, dict[str, Any]]:
+    """Real MCP handshake with an explicit reverse-proxy Host header.
+
+    TCP still targets the container loopback (the probe runs against a local
+    container); the HTTP Host header carries a deployment-shaped domain. The
+    container under test must be started with SPACE_HOST set to that domain
+    (mirroring the HF platform variable), so the transport-security allowlist
+    resolves to loopback + that exact host. Asserts a full handshake with the
+    two-tool list — 406/421/protocol errors fail the check.
+    """
+
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
+    base = args.base_url.rstrip("/")
+    url = f"{base}/mcp"
+    probe_host = args.proxy_host
+    headers = dict(_auth_headers(args.password))
+    headers["Host"] = probe_host
+    headers["Accept"] = "application/json, text/event-stream"
+
+    tools: list[str] = []
+    async with streamablehttp_client(url, headers=headers, timeout=120) as (
+        read_stream,
+        write_stream,
+        _session_id,
+    ):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            listed = await session.list_tools()
+            tools = sorted(tool.name for tool in listed.tools)
+    if tools != ["fetch", "search"]:
+        raise ProbeError(f"reverse-proxy handshake saw tools {tools}")
+    return (
+        f"real handshake via reverse-proxy Host {probe_host}; tools exactly search/fetch",
+        {"proxy_host": probe_host, "tools": tools},
+    )
+
+
+async def _mcp_proxy_denied_host_probe(
+    args: argparse.Namespace,
+) -> tuple[str, dict[str, Any]]:
+    status, body = await _mcp_raw_post(
+        f"{args.base_url.rstrip('/')}/mcp",
+        {
+            "Host": args.denied_host,
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            **_auth_headers(args.password),
+        },
+    )
+    details = {"denied_host": args.denied_host, "status": status, "body_head": body[:80]}
+    if status != 421:
+        raise ProbeError(
+            f"unlisted Host {args.denied_host} must be rejected with 421, got {status}"
+        )
+    return f"unlisted Host {args.denied_host} rejected with 421", details
+
+
+async def _mcp_proxy_denied_origin_probe(
+    args: argparse.Namespace,
+) -> tuple[str, dict[str, Any]]:
+    status, body = await _mcp_raw_post(
+        f"{args.base_url.rstrip('/')}/mcp",
+        {
+            "Host": args.proxy_host,
+            "Origin": "https://origin-not-allowed.example.com",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            **_auth_headers(args.password),
+        },
+    )
+    details = {
+        "proxy_host": args.proxy_host,
+        "denied_origin": "https://origin-not-allowed.example.com",
+        "status": status,
+        "body_head": body[:80],
+    }
+    if status != 403:
+        raise ProbeError(
+            f"unlisted Origin must be rejected with 403 (Host {args.proxy_host} allowed), got {status}"
+        )
+    return "unlisted Origin rejected with 403", details
+
+
+def check_mcp_proxy(recorder: ResultRecorder, args: argparse.Namespace) -> None:
+    _run_checks(
+        recorder,
+        [
+            (
+                "mcpproxy.handshake",
+                lambda: _mcp_proxy_handshake_probe(args),
+                240,
+            ),
+            ("mcpproxy.denied_host", lambda: _mcp_proxy_denied_host_probe(args), 60),
+            ("mcpproxy.denied_origin", lambda: _mcp_proxy_denied_origin_probe(args), 60),
         ],
     )
 
@@ -1161,6 +1295,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://127.0.0.1:49265")
     parser.add_argument("--mcp-url", default=None, help="Defaults to <base-url>/mcp")
     parser.add_argument("--password", default=None, help="Configured user password, if any")
+    parser.add_argument(
+        "--proxy-host",
+        default="demo-space.hf.space",
+        help="Deployment-shaped Host for the reverse-proxy MCP probe (mcpproxy mode); "
+        "the container must be started with SPACE_HOST set to the same value",
+    )
+    parser.add_argument(
+        "--denied-host",
+        default="host-not-allowed.example.com",
+        help="Host that must be rejected with 421 in the mcpproxy probe",
+    )
     parser.add_argument("--expected-sha", default=None, help="Selected 40-hex source SHA")
     parser.add_argument("--image-revision", default=None, help="Image revision label value")
     parser.add_argument("--warp-proxy", default=None, help=f"Defaults to {WARP_SOCKS_PROXY}")
@@ -1187,6 +1332,7 @@ def main(argv: list[str] | None = None) -> int:
         "image": check_image,
         "http": check_http,
         "mcp": check_mcp,
+        "mcpproxy": check_mcp_proxy,
         "auth": check_auth,
         "authopen": check_authopen,
         "browser": check_browser,

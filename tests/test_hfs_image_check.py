@@ -310,6 +310,7 @@ class TestCliSurface:
             "image",
             "http",
             "mcp",
+            "mcpproxy",
             "auth",
             "authopen",
             "browser",
