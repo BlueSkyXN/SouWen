@@ -584,14 +584,18 @@ async def _mcp_raw_post(
 async def _mcp_proxy_handshake_probe(
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any]]:
-    """Real MCP handshake with an explicit reverse-proxy Host header.
+    """Real MCP handshake + two tool calls behind a reverse-proxy Host header.
 
     TCP still targets the container loopback (the probe runs against a local
     container); the HTTP Host header carries a deployment-shaped domain. The
     container under test must be started with SPACE_HOST set to that domain
     (mirroring the HF platform variable), so the transport-security allowlist
-    resolves to loopback + that exact host. Asserts a full handshake with the
-    two-tool list — 406/421/protocol errors fail the check.
+    resolves to loopback + that exact host. In the same SDK session: initialize
+    → tools/list (exactly search/fetch) → a real search tools/call and a real
+    fetch tools/call, reusing the mcp mode's frozen query/URL and validity
+    gates (usable_search_results semantics: numbered results, body length,
+    interstitial rejection). 406/421/protocol errors, tool isError, empty or
+    interstitial results fail the check.
     """
 
     from mcp import ClientSession
@@ -605,7 +609,9 @@ async def _mcp_proxy_handshake_probe(
     headers["Accept"] = "application/json, text/event-stream"
 
     tools: list[str] = []
-    async with streamablehttp_client(url, headers=headers, timeout=120) as (
+    search_text = ""
+    fetch_text = ""
+    async with streamablehttp_client(url, headers=headers, timeout=240) as (
         read_stream,
         write_stream,
         _session_id,
@@ -614,11 +620,54 @@ async def _mcp_proxy_handshake_probe(
             await session.initialize()
             listed = await session.list_tools()
             tools = sorted(tool.name for tool in listed.tools)
+
+            search_result = await session.call_tool(
+                "search",
+                {
+                    "query": SMOKE_SEARCH_QUERY,
+                    "domain": SMOKE_SEARCH_DOMAIN,
+                    "limit": SMOKE_SEARCH_LIMIT,
+                },
+            )
+            search_text = _tool_text(search_result)
+            if getattr(search_result, "isError", False):
+                raise ProbeError(f"proxy search tool returned an error: {search_text[:200]}")
+
+            fetch_result = await session.call_tool("fetch", _fetch_payload())
+            fetch_text = _tool_text(fetch_result)
+            if getattr(fetch_result, "isError", False):
+                raise ProbeError(f"proxy fetch tool returned an error: {fetch_text[:200]}")
+
     if tools != ["fetch", "search"]:
         raise ProbeError(f"reverse-proxy handshake saw tools {tools}")
+    numbered = [line for line in search_text.splitlines() if _is_numbered_result(line)]
+    if len(numbered) < SMOKE_SEARCH_LIMIT:
+        raise ProbeError(
+            f"proxy search tool returned {len(numbered)} usable results (need {SMOKE_SEARCH_LIMIT})"
+        )
+    header, _separator, body = fetch_text.partition("\n")
+    stripped = body.strip()
+    if "egress:" not in header:
+        raise ProbeError("proxy fetch tool header does not report the egress level")
+    if len(stripped) < MIN_FETCH_CHARS:
+        raise ProbeError(f"proxy fetch tool body is {len(stripped)} chars (need {MIN_FETCH_CHARS})")
+    haystack = stripped[:4000].lower()
+    for marker in VERIFICATION_MARKERS:
+        if marker in haystack:
+            raise ProbeError(f"proxy fetch tool body is an interstitial: {marker}")
+
+    details = {
+        "proxy_host": probe_host,
+        "tools": tools,
+        "search_usable": len(numbered),
+        "search_text_head": search_text[:200],
+        "fetch_header": header[:120],
+        "fetch_body_chars": len(stripped),
+    }
     return (
-        f"real handshake via reverse-proxy Host {probe_host}; tools exactly search/fetch",
-        {"proxy_host": probe_host, "tools": tools},
+        f"handshake + {len(numbered)} search results + {len(stripped)} fetch chars "
+        f"via reverse-proxy Host {probe_host}",
+        details,
     )
 
 
