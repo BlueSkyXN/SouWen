@@ -4,10 +4,11 @@ Type: Domain card. Read when changing the HFS Space wrapper.
 
 `hfs/` holds the Space Dockerfile and entrypoint. The entrypoint runs
 `souwen serve`. The Space has been on 3.x since 2026-11-17 (deploy history lives in
-the local runbook, not here). The legacy rc6 secrets (`SOUWEN_ADMIN_PASSWORD`,
-`SOUWEN_CONFIG_B64`) are still present but have no consumer in 3.x; the loader
-drops them silently (see `src/souwen/config/loader.py`), so removing them is a
-cleanup decision for the owner, not a deploy prerequisite.
+the local runbook, not here). On config: `SOUWEN_CONFIG_B64` is **still a live
+config carrier** — the root `entrypoint.sh` decodes it into `/app/souwen.yaml`
+and the loader reads that file; only the retired fields inside it
+(`SOUWEN_ADMIN_PASSWORD`-style admin/guest/LLM keys) are ignored. Do not treat
+the secret as dead config or delete it without a replacement plan.
 
 `hfs/Dockerfile` is not the root `Dockerfile`: it clones the source itself from
 `ARG SOUWEN_REF` and then runs the root `entrypoint.sh`. It must keep the same
