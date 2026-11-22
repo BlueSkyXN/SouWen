@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+  pull_request:
+    branches: [main, agent-first]
+    paths:
+      - .github/workflows/release.yml
+      - .github/workflows/ci.yml
+      - scripts/ci/publish_release.py
+      - tests/test_release_publish.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: souwen-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    if: github.event.deleted != true
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    if: github.event.deleted != true
+    name: Build and test Python release packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      sha: ${{ steps.version.outputs.sha }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install build tools
+        run: python -m pip install build
+      - name: Verify source commit and release version
+        id: version
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          test "$sha" = "$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          from packaging.version import Version
+
+          version = Version(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          tag = os.environ["GITHUB_REF_NAME"]
+          if os.environ["GITHUB_REF_TYPE"] == "tag" and tag != f"v{version}":
+              raise SystemExit(f"标签 {tag} 与包版本不匹配，应为 v{version}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as outputs:
+              outputs.write(f"version={version}\nprerelease={str(version.is_prerelease).lower()}\n")
+          PY
+      - name: Build wheel and source distribution
+        run: SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" python -m build --outdir dist
+      - name: Smoke-test the installed wheel and record checksums
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          wheel="souwen-${RELEASE_VERSION}-py3-none-any.whl"
+          sdist="souwen-${RELEASE_VERSION}.tar.gz"
+          (cd dist && sha256sum "$wheel" "$sdist" > SHA256SUMS)
+          venv="$RUNNER_TEMP/release-smoke"
+          python -m venv "$venv"
+          "$venv/bin/python" -m pip install "${PWD}/dist/${wheel}[mcp]"
+          cd "$RUNNER_TEMP"
+          "$venv/bin/python" - <<'PY'
+          import os
+          from importlib.metadata import version
+
+          from souwen import __version__
+
+          expected = os.environ["RELEASE_VERSION"]
+          if __version__ != expected or version("souwen") != expected:
+              raise SystemExit(f"安装包与运行时应使用版本 {expected}")
+          PY
+          "$venv/bin/souwen" mcp --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-release-packages
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref_type == 'tag' && github.event.deleted != true
+    needs: [ci, package]
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-release-packages
+          path: dist/
+      - name: Verify the package checksums
+        working-directory: dist/
+        run: sha256sum --check SHA256SUMS
+      - name: Publish and verify the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ needs.package.outputs.sha }}
+          RELEASE_PRERELEASE: ${{ needs.package.outputs.prerelease }}
+        run: python3 scripts/ci/publish_release.py

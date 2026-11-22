@@ -1,5 +1,5 @@
 # 基础 CI：ruff、pytest、根镜像可构建、HFS 镜像部署前验证。
-# 体检走 census.yml，镜像发布走 image.yml（P4，只写不跑）。
+# release.yml 复用 CI 验证待发布的提交。
 
 name: CI
 
@@ -8,6 +8,7 @@ on:
     branches: [main, agent-first]
   pull_request:
     branches: [main]
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -86,9 +87,8 @@ jobs:
   # Space，也不用 image.yml（它是发布路径，只写不跑）。
   hfs-image:
     name: HFS image (deploy-time verify)
-    # 只有 push 才验证：source-checkout 阶段要按 SHA 从公开仓库拉取源码，
-    # fork 来的 PR 里那个 SHA 不存在。
-    if: github.event_name == 'push'
+    # 分支 push 的提交可由 Space 镜像的 source-checkout 阶段按 SHA 公开拉取。
+    if: github.event_name == 'push' && github.ref_type == 'branch'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
