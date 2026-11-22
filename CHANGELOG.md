@@ -2,6 +2,7 @@
 
 ## 导航
 
+- [SouWen v3.0.0a2 MCP alpha](#v300a2--mcp-反代与配置2026-11-22-alpha)
 - [Souwen v3.0.0a1 agent-first alpha](#v300a1--agent-first-重定义2026-11-14-alpha)
 - [Souwen v2rc6 source candidate](#v200rc6--release-candidate2026-08-30-source-candidate)
 - [Souwen v2rc5 source candidate](#v200rc5--release-candidate2026-07-30-source-candidate)
@@ -12,6 +13,14 @@
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+
+## v3.0.0a2 — MCP 反代与配置（2026-11-22 alpha）
+
+- `/mcp` 使用 Host 和 Origin 允许列表，并启用 DNS 重绑定防护。默认允许回环 Host，
+  部署环境设置 `SPACE_HOST` 时也接受该域名。自托管反代可配置实际转发的 Host。
+- `souwen.example.yaml` 提供 `mcp_allowed_hosts` 和 `mcp_allowed_origins`，
+  对应环境变量支持逗号分隔和 JSON 数组两种写法。
+- 回归测试覆盖 MCP 握手、`search` 和 `fetch`、鉴权、Host 与 Origin 校验以及环境变量加载。
 
 ## v3.0.0a1 — Agent-first 重定义（2026-11-14 alpha）
 

@@ -11,6 +11,7 @@ import logging
 import httpx
 import re
 from collections.abc import Mapping, Sequence
+from souwen import __version__
 from souwen.common_runtime.provider_support.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.common_runtime.provider_support.http_client import SouWenHttpClient
 from souwen.common_runtime.provider_support.parsing import safe_parse_date
@@ -526,7 +527,7 @@ def build_provider(
     resolved_configuration, resolved_secrets = resolve_provider_inputs(
         PATENTSVIEW_REST_SPEC, configuration, secrets
     )
-    headers = {"User-Agent": "SouWen/3.0.0a1"}
+    headers = {"User-Agent": f"SouWen/{__version__}"}
     reference = PATENTSVIEW_REST_SPEC.auth.reference
     if reference is not None:
         value = resolved_secrets.get(reference)

@@ -79,6 +79,13 @@ server:
   # 用户密码（保护 Data API；Bearer Token 即此密码）
   user_password: ~
   # user_password 设为空字符串（""）表示开放 Data API
+  # /mcp 允许的 Host。留空时使用回环地址和部署环境提供的 SPACE_HOST。
+  # 显式配置会替换默认列表。填写反代实际转发的 Host，例如 ["proxy.example.com"]。
+  # 带端口的 Host 应写出端口，也可用 "proxy.example.com:*" 匹配该主机的任意端口。
+  mcp_allowed_hosts: []
+  # /mcp 允许的 Origin。留空时拒绝带 Origin 的请求。
+  # 浏览器接入时填写完整 Origin，例如 ["https://app.example.com"]。
+  mcp_allowed_origins: []
   # CORS 允许的来源列表（默认不启用 CORS）
   # 示例: ["http://localhost:3000", "https://my-app.example.com"]
   # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）

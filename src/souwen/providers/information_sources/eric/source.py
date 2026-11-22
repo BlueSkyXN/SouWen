@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from souwen import __version__
 from souwen.common_runtime.provider_support.exceptions import ParseError
 from souwen.common_runtime.provider_support.http_client import SouWenHttpClient
 from souwen.common_runtime.transport import HttpTransport
@@ -264,7 +265,7 @@ def build_provider(
     resolved_configuration, resolved_secrets = resolve_provider_inputs(
         ERIC_REST_SPEC, configuration, secrets
     )
-    headers = {"User-Agent": "SouWen/3.0.0a1"}
+    headers = {"User-Agent": f"SouWen/{__version__}"}
     transport = HttpTransport(
         base_url=ERIC_REST_SPEC.base_url,
         headers=headers,
