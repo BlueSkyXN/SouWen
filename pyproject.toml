@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 # 项目配置：包名、版本、描述、许可证等基本信息
 [project]
 name = "souwen"
-version = "3.0.0a1"
+version = "3.0.0a2"
 description = "面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 authors = [{name = "BlueSkyXN"}]
 keywords = ["academic", "paper", "patent", "search", "arxiv", "openalex", "agent-toolkit"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
@@ -42,9 +42,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/BlueSkyXN/SouWen"
 Repository = "https://github.com/BlueSkyXN/SouWen"
-Documentation = "https://github.com/BlueSkyXN/SouWen/tree/main/docs"
+Documentation = "https://github.com/BlueSkyXN/SouWen/tree/agent-first/docs"
 Issues = "https://github.com/BlueSkyXN/SouWen/issues"
-Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/BlueSkyXN/SouWen/blob/agent-first/CHANGELOG.md"
 
 # 可选依赖组：根据用途安装不同的依赖集合
 [project.optional-dependencies]

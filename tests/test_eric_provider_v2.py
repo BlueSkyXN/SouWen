@@ -8,6 +8,7 @@ import httpx
 from importlib import import_module
 import pytest
 
+from souwen import __version__
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
 from souwen.config import DEFAULT_SEARCH_PROVIDERS, SouWenConfig
 from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError
@@ -685,7 +686,7 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
     assert transport_options == [
         {
             "base_url": "https://api.ies.ed.gov",
-            "headers": {"User-Agent": "SouWen/3.0.0a1"},
+            "headers": {"User-Agent": f"SouWen/{__version__}"},
             "timeout": 7,
             "max_retries": 2,
             "proxy": None,

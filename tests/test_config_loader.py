@@ -215,6 +215,32 @@ class TestEnvOverride:
         cfg = reload_config()
         assert cfg.cors_origins == ["https://a.example", "https://b.example"]
 
+    @pytest.mark.parametrize(
+        ("hosts", "origins"),
+        [
+            pytest.param(
+                "proxy.example.com, proxy.example.com:8443",
+                "https://app.example.com, https://app.example.com:8443",
+                id="csv",
+            ),
+            pytest.param(
+                '["proxy.example.com", "proxy.example.com:8443"]',
+                '["https://app.example.com", "https://app.example.com:8443"]',
+                id="json",
+            ),
+        ],
+    )
+    def test_mcp_allowlist_env_values(self, monkeypatch, hosts, origins):
+        """MCP Host 和 Origin 允许列表都接受逗号分隔文本与 JSON 数组。"""
+        monkeypatch.setenv("SOUWEN_MCP_ALLOWED_HOSTS", hosts)
+        monkeypatch.setenv("SOUWEN_MCP_ALLOWED_ORIGINS", origins)
+        cfg = reload_config()
+        assert cfg.mcp_allowed_hosts == ["proxy.example.com", "proxy.example.com:8443"]
+        assert cfg.mcp_allowed_origins == [
+            "https://app.example.com",
+            "https://app.example.com:8443",
+        ]
+
     def test_retired_unpaywall_yaml_and_env_are_rejected(self, monkeypatch, tmp_path):
         (tmp_path / "souwen.yaml").write_text(
             "paper:\n  unpaywall_email: researcher@example.com\n",
