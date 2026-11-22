@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.0.0a2-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0a3-orange)](CHANGELOG.md)
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -90,6 +90,8 @@ page = await fetch("https://arxiv.org/abs/1706.03762", max_chars=20000)
 ```
 
 ## Install & deploy
+
+Find prerelease packages and checksums on [GitHub Releases](https://github.com/BlueSkyXN/SouWen/releases).
 
 ```bash
 pip install "souwen[tls,web]"          # library
