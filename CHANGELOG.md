@@ -2,7 +2,8 @@
 
 ## 导航
 
-- [SouWen v3.0.0a3 自动发布](#v300a3--自动发布2026-11-22-alpha)
+- [SouWen v3.0.0a4 自动发布](#v300a4--自动发布2026-11-22-alpha)
+- [SouWen v3.0.0a3 发布流程试跑](#v300a3--发布流程试跑2026-11-22-alpha)
 - [SouWen v3.0.0a2 MCP alpha](#v300a2--mcp-反代与配置2026-11-22-alpha)
 - [Souwen v3.0.0a1 agent-first alpha](#v300a1--agent-first-重定义2026-11-14-alpha)
 - [Souwen v2rc6 source candidate](#v200rc6--release-candidate2026-08-30-source-candidate)
@@ -15,10 +16,15 @@
 
 > v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v3.0.0a3 — 自动发布（2026-11-22 alpha）
+## v3.0.0a4 — 自动发布（2026-11-22 alpha）
 
 - 推送版本标签后，GitHub Actions 验证该提交、构建 wheel 和源码包，并验证 wheel 可安装。
 - CI 通过后，工作流核对发布草稿的附件和 SHA-256，再公开 GitHub Release。
+- 使用标签说明生成 GitHub Release 的发布说明。
+
+## v3.0.0a3 — 发布流程试跑（2026-11-22 alpha）
+
+- 用版本标签验证云端构建和安装检查。
 
 ## v3.0.0a2 — MCP 反代与配置（2026-11-22 alpha）
 

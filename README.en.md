@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.0.0a3-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0a4-orange)](CHANGELOG.md)
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
