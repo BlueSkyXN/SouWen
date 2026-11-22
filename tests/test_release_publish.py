@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
@@ -46,7 +47,7 @@ def _release(files, *, draft):
 
 def test_tag_must_point_to_the_built_commit(monkeypatch, files):
     tag_object = {"object": {"type": "tag", "sha": "2" * 40}}
-    other_commit = {"object": {"type": "commit", "sha": "3" * 40}}
+    other_commit = {"object": {"type": "commit", "sha": "3" * 40}, "message": "release notes"}
     api = Mock(side_effect=[tag_object, other_commit])
     gh = Mock()
     monkeypatch.setattr(publish_release, "_api", api)
@@ -60,6 +61,37 @@ def test_tag_must_point_to_the_built_commit(monkeypatch, files):
         call(f"repos/{REPO}/git/tags/{'2' * 40}"),
     ]
     gh.assert_not_called()
+
+
+def test_draft_creation_supplies_notes_from_a_file(monkeypatch, files):
+    body = "## 发布说明\n\n标签说明原文。\n"
+    tag_ref = {"object": {"type": "tag", "sha": "2" * 40}}
+    annotation = {"object": {"type": "commit", "sha": COMMIT}, "message": body}
+
+    def api(path):
+        if path == f"repos/{REPO}/git/ref/tags/{TAG}":
+            return tag_ref
+        if path == f"repos/{REPO}/git/tags/{'2' * 40}":
+            return annotation
+        return release_records.pop(0)
+
+    def gh(*args):
+        if args[:2] == ("release", "create"):
+            assert "--notes-from-tag" not in args
+            assert Path(args[args.index("--notes-file") + 1]).read_text(encoding="utf-8") == body
+            assert "--draft" in args
+        if args[:2] == ("release", "view"):
+            return "123"
+        return ""
+
+    release_records = [_release(files, draft=True), _release(files, draft=False)]
+    monkeypatch.setattr(publish_release, "_api", api)
+    monkeypatch.setattr(publish_release, "_gh", Mock(side_effect=gh))
+    monkeypatch.setattr(publish_release, "_find_release", lambda *_: None)
+
+    assert publish_release.publish(REPO, TAG, COMMIT, True, files[0].parent) == RELEASE_URL
+    assert publish_release._gh.call_args_list[0].args[:3] == ("release", "create", TAG)
+    assert publish_release._gh.call_args_list[-1].args[:3] == ("release", "edit", TAG)
 
 
 def test_draft_resume_uploads_missing_asset_before_publication(monkeypatch, files):

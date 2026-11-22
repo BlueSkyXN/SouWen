@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
 
@@ -18,12 +19,16 @@ def _api(path: str) -> dict:
     return json.loads(_gh("api", path))
 
 
-def _verify_tag(repo: str, tag: str, commit: str) -> None:
+def _verify_tag(repo: str, tag: str, commit: str) -> str:
     obj = _api(f"repos/{repo}/git/ref/tags/{quote(tag, safe='')}")["object"]
+    notes = ""
     while obj["type"] == "tag":
-        obj = _api(f"repos/{repo}/git/tags/{obj['sha']}")["object"]
+        annotation = _api(f"repos/{repo}/git/tags/{obj['sha']}")
+        notes = notes or annotation["message"]
+        obj = annotation["object"]
     if obj["type"] != "commit" or obj["sha"] != commit:
         raise RuntimeError(f"标签 {tag} 应指向已验证的提交 {commit}")
+    return notes
 
 
 def _find_release(repo: str, tag: str) -> dict | None:
@@ -54,7 +59,7 @@ def _missing_assets(release: dict, files: list[Path], prerelease: bool) -> list[
 
 
 def publish(repo: str, tag: str, commit: str, prerelease: bool, directory: Path) -> str:
-    _verify_tag(repo, tag, commit)
+    tag_notes = _verify_tag(repo, tag, commit)
     version = tag.removeprefix("v")
     files = [
         directory / f"souwen-{version}-py3-none-any.whl",
@@ -68,22 +73,27 @@ def publish(repo: str, tag: str, commit: str, prerelease: bool, directory: Path)
     flags = ["--prerelease", "--latest=false"] if prerelease else []
     release = _find_release(repo, tag)
     if release is None:
-        _gh(
-            "release",
-            "create",
-            tag,
-            *map(str, files),
-            "--repo",
-            repo,
-            "--verify-tag",
-            "--target",
-            commit,
-            "--draft",
-            "--title",
-            f"SouWen {tag}",
-            "--notes-from-tag",
-            *flags,
-        )
+        with TemporaryDirectory() as temp_dir:
+            notes = Path(temp_dir) / "release-notes.md"
+            body = tag_notes or _api(f"repos/{repo}/git/commits/{commit}")["message"]
+            notes.write_text(body, encoding="utf-8")
+            _gh(
+                "release",
+                "create",
+                tag,
+                *map(str, files),
+                "--repo",
+                repo,
+                "--verify-tag",
+                "--target",
+                commit,
+                "--draft",
+                "--title",
+                f"SouWen {tag}",
+                "--notes-file",
+                str(notes),
+                *flags,
+            )
         release_id = _gh(
             "release", "view", tag, "--repo", repo, "--json", "databaseId", "--jq", ".databaseId"
         )
